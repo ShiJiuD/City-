@@ -13,6 +13,6 @@ public class MessageConstant {
     public static final String QUERY_FAIL = "查询失败";
     public static final String SYSTEM_ERROR = "系统异常";
 
-    public static final String BUYER_ROLE = "买家";
-    public static final String ADMIN_ROLE = "商家";
+    public static final String USER_ROLE = "user";
+    public static final String ADMIN_ROLE = "admin";
 }

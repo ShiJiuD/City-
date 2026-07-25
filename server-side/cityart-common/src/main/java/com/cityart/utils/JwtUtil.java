@@ -37,7 +37,7 @@ package com.cityart.utils;
       /**
        * 生成token【重载1：携带角色信息，核心方法】
        * @param Id 用户id
-       * @param role 身份：ADMIN / BUYER
+       * @param role 身份：USER / ADMIN
        */
       public String generateToken(Long Id, String role) {
           return Jwts.builder()
@@ -73,7 +73,7 @@ package com.cityart.utils;
           return parseToken(token).get("Id", Long.class);
       }
 
-      /** 从token获取角色身份 ADMIN / BUYER */
+      /** 从token获取角色身份 USER / ADMIN */
       public String getRole(String token) {
           return parseToken(token).get("Role", String.class);
       }

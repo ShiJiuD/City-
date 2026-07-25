@@ -2,7 +2,6 @@ package com.cityart.controller.admin;
 
 import com.cityart.constant.AuthMessageConstant;
 import com.cityart.dto.LoginDTO;
-import com.cityart.entity.AdminUser;
 import com.cityart.result.Result;
 import com.cityart.service.AdminUserService;
 import com.cityart.vo.LoginVO;
@@ -16,19 +15,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "商家登录")
+@Tag(name = "B端管理员登录")
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
 @Slf4j
-public class LoginController {
+public class AdminLoginController {
 
     private final AdminUserService adminUserService;
 
-    @Operation(summary = "卖家登录")
+    @Operation(summary = "管理员登录")
     @PostMapping("/login")
     public Result<LoginVO> login(@RequestBody @Validated LoginDTO dto) {
-        log.info("卖家登录请求: {}", dto);
+        log.info("管理员登录请求: {}", dto);
         LoginVO loginVO = adminUserService.login(dto.getPhone(), dto.getPassword());
         return Result.success(loginVO, AuthMessageConstant.LOGIN_SUCCESS);
     }

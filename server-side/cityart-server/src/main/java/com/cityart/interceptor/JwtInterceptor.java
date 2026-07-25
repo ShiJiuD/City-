@@ -2,7 +2,7 @@ package com.cityart.interceptor;
 
 import com.cityart.constant.MessageConstant;
 import com.cityart.context.AdminContext;
-import com.cityart.context.BuyerContext;
+import com.cityart.context.UserContext;
 import com.cityart.service.TokenBlacklistService;
 import com.cityart.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,9 +58,9 @@ public class JwtInterceptor implements HandlerInterceptor {
         // 从 token 中获取用户角色
         String role = jwtUtil.getRole(token);
         // 设置角色
-        if (MessageConstant.BUYER_ROLE.equals(role)) {
-            BuyerContext.setBuyerId(jwtUtil.getId(token));
-            BuyerContext.setBuyerRole(role);
+        if (MessageConstant.USER_ROLE.equals(role)) {
+            UserContext.setUserId(jwtUtil.getId(token));
+            UserContext.setUserRole(role);
         } else {
             AdminContext.setAdminId(jwtUtil.getId(token));
             AdminContext.setAdminRole(role);
@@ -74,7 +74,7 @@ public class JwtInterceptor implements HandlerInterceptor {
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                 Object handler, Exception ex) {
         AdminContext.clear();
-        BuyerContext.clear();
+        UserContext.clear();
     }
 
 }

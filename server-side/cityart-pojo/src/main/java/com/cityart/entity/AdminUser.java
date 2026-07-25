@@ -1,5 +1,6 @@
 package com.cityart.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.IdType;
@@ -57,15 +58,15 @@ public class AdminUser implements Serializable {
     private Integer status;
 
     /**
-     * 创建时间
+     * 创建时间（INSERT 时自动填充）
      */
-    @TableField("create_time")
+    @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
     /**
-     * 最近更新时间
+     * 最近更新时间（INSERT 和 UPDATE 时自动填充）
      */
-    @TableField("update_time")
+    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
 

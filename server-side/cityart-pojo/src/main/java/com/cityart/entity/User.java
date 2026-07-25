@@ -1,5 +1,6 @@
 package com.cityart.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.IdType;
@@ -12,17 +13,17 @@ import lombok.experimental.Accessors;
 
 /**
  * <p>
- * C端普通观展用户表
+ * C端普通用户表
  * </p>
  *
- * @author 
+ * @author
  * @since 2026-07-24
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("buyer_user")
-public class BuyerUser implements Serializable {
+@TableName("user")
+public class User implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -57,15 +58,15 @@ public class BuyerUser implements Serializable {
     private Integer status;
 
     /**
-     * 注册时间
+     * 注册时间（INSERT 时自动填充）
      */
-    @TableField("create_time")
+    @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
     /**
-     * 最近更新时间
+     * 最近更新时间（INSERT 和 UPDATE 时自动填充）
      */
-    @TableField("update_time")
+    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
 

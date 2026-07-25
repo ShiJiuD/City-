@@ -5,18 +5,20 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
- * 登录返回数据（user / admin 共用）
+ * C端用户个人信息返回数据
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginVO {
+public class UserProfileVO {
 
     private Long id;
     private String phone;
-    private String name;        // 管理员姓名
-    private String nickname;    // 用户昵称
-    private String token;
+    private String nickname;
+    private Integer status;
+    private LocalDateTime createTime;
 }
