@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
 import { registerUser } from '../api/auth'
 
 const router = useRouter()
-const auth = useAuthStore()
 
 const form = reactive({
   phone: '',
@@ -35,20 +33,9 @@ async function handleRegister() {
 
   loading.value = true
   try {
-    const res = await registerUser({ phone: form.phone, password: form.password })
-    // 注册成功自动返回 token，直接登录
-    const data = res.data
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('role', 'user')
-    auth.token = data.token
-    auth.user = {
-      id: data.id,
-      phone: data.phone,
-      role: 'user',
-      displayName: data.nickname || '',
-      status: 0,
-    }
-    router.push('/')
+    await registerUser({ phone: form.phone, password: form.password })
+    // 注册成功，跳转登录页
+    router.push({ name: 'login', query: { success: '注册成功，请登录' } })
   } catch (e: any) {
     errorMsg.value = e.message || '注册失败，请重试'
   } finally {

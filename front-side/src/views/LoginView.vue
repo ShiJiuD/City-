@@ -20,34 +20,39 @@ const form = reactive({
 // 加载态
 const loading = ref(false)
 
-// 顶部错误横幅
-const errorBanner = ref({
+// 顶部横幅
+const banner = ref({
   visible: false,
   msg: '',
+  type: 'error' as 'error' | 'success',
 })
 let dismissTimer: ReturnType<typeof setTimeout> | null = null
 
-// 显示顶部错误横幅，3秒后自动消失
-function showError(msg: string) {
-  // 清除旧定时器
+// 显示顶部横幅，3秒后自动消失
+function showBanner(msg: string, type: 'error' | 'success' = 'error') {
   if (dismissTimer) clearTimeout(dismissTimer)
-  errorBanner.value = { visible: true, msg }
+  banner.value = { visible: true, msg, type }
   dismissTimer = setTimeout(() => {
-    errorBanner.value.visible = false
+    banner.value.visible = false
   }, 3000)
 }
 
 // 手动关闭
 function closeBanner() {
   if (dismissTimer) clearTimeout(dismissTimer)
-  errorBanner.value.visible = false
+  banner.value.visible = false
 }
 
-// 读取路由守卫传来的错误原因
+// 读取路由传来的消息（错误原因 / 注册成功等）
 onMounted(() => {
   const reason = route.query.reason
-  if (reason && typeof reason === 'string') {
-    showError(reason)
+  const success = route.query.success
+  if (success && typeof success === 'string') {
+    showBanner(success, 'success')
+  } else if (reason && typeof reason === 'string') {
+    showBanner(reason, 'error')
+  }
+  if (reason || success) {
     router.replace({ query: {} })
   }
 })
@@ -60,7 +65,7 @@ async function handleLogin() {
     localStorage.setItem('role', role.value)
     router.push('/home')
   } catch (e: any) {
-    showError(e.message || '登录失败，请重试')
+    showBanner(e.message || '登录失败，请重试')
   } finally {
     loading.value = false
   }
@@ -69,11 +74,15 @@ async function handleLogin() {
 
 <template>
   <div class="login-page">
-    <!-- ===== 顶部错误横幅 ===== -->
+    <!-- ===== 顶部横幅 ===== -->
     <Transition name="banner">
-      <div v-if="errorBanner.visible" class="error-banner" @click="closeBanner">
-        <span class="banner-icon">!</span>
-        <span class="banner-text">{{ errorBanner.msg }}</span>
+      <div
+        v-if="banner.visible"
+        :class="['top-banner', banner.type === 'success' ? 'banner-success' : 'banner-error']"
+        @click="closeBanner"
+      >
+        <span class="banner-icon">{{ banner.type === 'success' ? '✓' : '!' }}</span>
+        <span class="banner-text">{{ banner.msg }}</span>
         <button class="banner-close">×</button>
       </div>
     </Transition>
@@ -135,8 +144,8 @@ async function handleLogin() {
   background: #f7f8fa;
 }
 
-/* ===== 顶部错误横幅 ===== */
-.error-banner {
+/* ===== 顶部横幅 ===== */
+.top-banner {
   position: fixed;
   top: 0;
   left: 0;
@@ -145,11 +154,20 @@ async function handleLogin() {
   align-items: center;
   gap: 10px;
   padding: 12px 20px;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.banner-error {
   background: #fff2f0;
   border-bottom: 1px solid #ffccc7;
   color: #ff4d4f;
-  cursor: pointer;
-  z-index: 1000;
+}
+
+.banner-success {
+  background: #f6ffed;
+  border-bottom: 1px solid #b7eb8f;
+  color: #52c41a;
 }
 
 .banner-icon {
@@ -159,11 +177,19 @@ async function handleLogin() {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #ff4d4f;
-  color: #fff;
   font-size: 12px;
   font-weight: bold;
   flex-shrink: 0;
+}
+
+.banner-error .banner-icon {
+  background: #ff4d4f;
+  color: #fff;
+}
+
+.banner-success .banner-icon {
+  background: #52c41a;
+  color: #fff;
 }
 
 .banner-text {
