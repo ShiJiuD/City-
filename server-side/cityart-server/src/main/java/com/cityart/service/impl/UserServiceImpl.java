@@ -64,7 +64,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .id(user.getId())
                 .phone(user.getPhone())
                 .nickname(user.getNickname())
-                .token(token)
+//                .token(token)
                 .build();
         return vo;
     }
