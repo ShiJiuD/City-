@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cityart.mapper.ExhibitionMapper">
+
+    <select id="selectHotExhibitions" resultType="com.cityart.vo.HomeExhibitionVO">
+        SELECT
+            e.id,
+            e.poster_image AS posterImage,
+            e.title,
+            e.subtitle,
+            g.name AS galleryName,
+            e.type
+        FROM exhibition e
+        LEFT JOIN gallery g ON e.gallery_id = g.id
+        WHERE e.is_hot = 1
+          AND e.status = 1
+        ORDER BY e.sort_order DESC
+    </select>
+
+</mapper>
