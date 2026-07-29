@@ -3,317 +3,277 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import type { Role } from '../types'
+import bgImage from '../assets/loginbackground.png'
+import logoImage from '../assets/loginlogo.png'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 
-// 角色切换（user / admin）
 const role = ref<Role>('user')
+const showPwd = ref(false)
 
-// 表单数据
 const form = reactive({
   phone: '',
   password: '',
+  remember: false,
 })
 
-// 加载态
 const loading = ref(false)
 
-// 顶部横幅
-const banner = ref({
-  visible: false,
-  msg: '',
-  type: 'error' as 'error' | 'success',
-})
-let dismissTimer: ReturnType<typeof setTimeout> | null = null
+// ===== Toast =====
+const toast = ref({ visible: false, msg: '' })
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 
-// 显示顶部横幅，3秒后自动消失
-function showBanner(msg: string, type: 'error' | 'success' = 'error') {
-  if (dismissTimer) clearTimeout(dismissTimer)
-  banner.value = { visible: true, msg, type }
-  dismissTimer = setTimeout(() => {
-    banner.value.visible = false
-  }, 3000)
+function showToast(msg: string) {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { visible: true, msg }
+  toastTimer = setTimeout(() => { toast.value.visible = false }, 3000)
 }
 
-// 手动关闭
-function closeBanner() {
-  if (dismissTimer) clearTimeout(dismissTimer)
-  banner.value.visible = false
+function closeToast() {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value.visible = false
 }
 
-// 读取路由传来的消息（错误原因 / 注册成功等）
 onMounted(() => {
   const reason = route.query.reason
   const success = route.query.success
-  if (success && typeof success === 'string') {
-    showBanner(success, 'success')
-  } else if (reason && typeof reason === 'string') {
-    showBanner(reason, 'error')
-  }
-  if (reason || success) {
+  const msg = success || reason
+  if (msg && typeof msg === 'string') {
+    showToast(msg)
     router.replace({ query: {} })
   }
 })
 
 async function handleLogin() {
-  loading.value = true
+  if (!form.phone.trim()) { showToast('请输入账号'); return }
+  if (!/^1[3-9]\d{9}$/.test(form.phone.trim())) { showToast('手机号格式错误'); return }
+  if (!form.password) { showToast('请输入密码'); return }
 
+  loading.value = true
   try {
     await auth.login(role.value, form.phone, form.password)
     localStorage.setItem('role', role.value)
+    if (form.remember) {
+      localStorage.setItem('rememberPhone', form.phone)
+    } else {
+      localStorage.removeItem('rememberPhone')
+    }
     router.push('/home')
   } catch (e: any) {
-    showBanner(e.message || '登录失败，请重试')
+    showToast(e.message || '登录失败，请重试')
   } finally {
     loading.value = false
   }
 }
+
+const rememberedPhone = localStorage.getItem('rememberPhone')
+if (rememberedPhone) {
+  form.phone = rememberedPhone
+  form.remember = true
+}
 </script>
 
 <template>
-  <div class="login-page">
-    <!-- ===== 顶部横幅 ===== -->
-    <Transition name="banner">
-      <div
-        v-if="banner.visible"
-        :class="['top-banner', banner.type === 'success' ? 'banner-success' : 'banner-error']"
-        @click="closeBanner"
-      >
-        <span class="banner-icon">{{ banner.type === 'success' ? '✓' : '!' }}</span>
-        <span class="banner-text">{{ banner.msg }}</span>
-        <button class="banner-close">×</button>
+  <div class="login-page" :style="{ backgroundImage: `url(${bgImage})` }">
+    <Transition name="toast">
+      <div v-if="toast.visible" class="toast" @click="closeToast">
+        <span class="toast-icon">✕</span>
+        <span class="toast-text">{{ toast.msg }}</span>
       </div>
     </Transition>
 
-    <div class="login-container">
-      <h1>ciTY 美术馆</h1>
-
-      <!-- 角色切换标签 -->
-      <div class="role-tabs">
-        <button
-          :class="{ active: role === 'user' }"
-          @click="role = 'user'"
-        >普通用户</button>
-        <button
-          :class="{ active: role === 'admin' }"
-          @click="role = 'admin'"
-        >管理员</button>
+    <div class="login-layout">
+      <!-- ===== 左侧 ===== -->
+      <div class="left-section">
+        <div class="left-content">
+          <img :src="logoImage" alt="logo" class="logo-img" />
+          <div class="left-text">
+            <h2 class="slogan">艺览，看见每一场展览</h2>
+            <p class="subtitle">基于AI个性化推荐美术展览</p>
+          </div>
+        </div>
       </div>
 
-      <!-- 登录表单 -->
-      <form @submit.prevent="handleLogin" class="login-form">
-        <div class="form-item">
-          <label>手机号</label>
-          <input
-            v-model="form.phone"
-            type="tel"
-            maxlength="11"
-            placeholder="请输入11位手机号"
-          />
+      <!-- ===== 右侧卡片 ===== -->
+      <div class="right-section">
+        <div class="login-card">
+          <h1 class="card-title">欢迎使用 艺览</h1>
+          <p class="card-subtitle">账号登录</p>
+
+          <div class="role-tabs">
+            <span :class="{ active: role === 'user' }" @click="role = 'user'">普通用户</span>
+            <span class="role-sep">|</span>
+            <span :class="{ active: role === 'admin' }" @click="role = 'admin'">管理人员</span>
+          </div>
+
+          <form @submit.prevent="handleLogin" class="login-form">
+            <input v-model="form.phone" type="tel" maxlength="11" placeholder="请输入账号" class="form-input" />
+
+            <div class="pwd-wrap">
+              <input v-model="form.password" :type="showPwd ? 'text' : 'password'" maxlength="16" placeholder="请输入密码" class="form-input" />
+              <span class="pwd-eye" @click="showPwd = !showPwd">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                  <line v-if="showPwd" x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              </span>
+            </div>
+
+            <label class="remember-row">
+              <input type="checkbox" v-model="form.remember" />
+              <span>记住账号</span>
+            </label>
+
+            <button type="submit" :disabled="loading" class="login-btn">
+              {{ loading ? '登录中...' : '登录' }}
+            </button>
+          </form>
+
+          <div class="footer-links">
+            <router-link to="/forgot-password">忘记密码</router-link>
+            <router-link to="/register">账号注册</router-link>
+          </div>
         </div>
-
-        <div class="form-item">
-          <label>密码</label>
-          <input
-            v-model="form.password"
-            type="password"
-            maxlength="16"
-            placeholder="请输入密码"
-          />
-        </div>
-
-        <button type="submit" :disabled="loading" class="submit-btn">
-          {{ loading ? '登录中...' : '登录' }}
-        </button>
-      </form>
-
-      <!-- 底部链接 -->
-      <div class="footer-links">
-        <router-link to="/register">注册新账号</router-link>
-        <router-link to="/forgot-password">忘记密码</router-link>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* ===== 全局布局 ===== */
 .login-page {
-  min-height: 100vh;
-  background: #f7f8fa;
+  width: 100vw; height: 100vh;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+.login-layout {
+  display: flex; max-width: 1440px; margin: 0 auto; width: 100%; height: 100%;
 }
 
-/* ===== 顶部横幅 ===== */
-.top-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  cursor: pointer;
-  z-index: 1000;
+/* ===== Toast ===== */
+.toast {
+  position: fixed; top: 40px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+  background: #fff0f0; border: 1px solid #ffd4d4; border-radius: 6px;
+  cursor: pointer; z-index: 9999;
+}
+.toast-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%; background: #ff4d4f;
+  color: #fff; font-size: 9px; font-weight: bold; flex-shrink: 0;
+}
+.toast-text { font-size: 13px; color: #ff4d4f; }
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+
+/* ===== 左侧 ===== */
+.left-section {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+}
+.left-content {
+  display: flex; flex-direction: column; align-items: center;
+}
+.logo-img {
+  width: 251px; height: 122px; object-fit: contain;
+}
+.left-text {
+  margin-top: 120px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.slogan {
+  font-size: 42px; font-weight: 700; margin: 0; color: #111;
+}
+.subtitle {
+  font-size: 16px; font-weight: 400; margin: 0; color: #333;
 }
 
-.banner-error {
-  background: #fff2f0;
-  border-bottom: 1px solid #ffccc7;
-  color: #ff4d4f;
+/* ===== 右侧卡片 ===== */
+.right-section {
+  width: 580px; display: flex; align-items: center; justify-content: center;
+  padding: 6vh 60px 6vh 20px; flex-shrink: 0;
+}
+.login-card {
+  width: 100%; background: #fff; border-radius: 20px;
+  padding: 60px 56px 56px;
+  box-shadow: 0 8px 60px rgba(0, 0, 0, 0.15);
 }
 
-.banner-success {
-  background: #f6ffed;
-  border-bottom: 1px solid #b7eb8f;
-  color: #52c41a;
+/* ===== 卡片头部 ===== */
+.card-title {
+  font-size: 32px; font-weight: 700; margin: 0; color: #111;
+}
+.card-subtitle {
+  font-size: 20px; color: #1a1a1a; font-weight: 500;
+  margin: 8px 0 0;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #1a1a1a;
+  display: inline-block;
 }
 
-.banner-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: bold;
-  flex-shrink: 0;
-}
-
-.banner-error .banner-icon {
-  background: #ff4d4f;
-  color: #fff;
-}
-
-.banner-success .banner-icon {
-  background: #52c41a;
-  color: #fff;
-}
-
-.banner-text {
-  flex: 1;
-  font-size: 14px;
-}
-
-.banner-close {
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: #ff4d4f;
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 0 4px;
-  line-height: 1;
-}
-
-/* 横幅进出动画 */
-.banner-enter-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-.banner-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-.banner-enter-from {
-  transform: translateY(-100%);
-  opacity: 0;
-}
-.banner-leave-to {
-  transform: translateY(-100%);
-  opacity: 0;
-}
-
-/* ===== 登录卡片 ===== */
-.login-container {
-  max-width: 400px;
-  margin: 0 auto;
-  padding: 80px 32px 32px;
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
+/* ===== 角色切换 ===== */
 .role-tabs {
-  display: flex;
-  margin-bottom: 24px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #ddd;
+  display: flex; align-items: center; justify-content: center; gap: 28px;
+  margin-top: 36px; margin-bottom: 32px;
+}
+.role-tabs span {
+  cursor: pointer; font-size: 18px; color: #1a1a1a;
+  padding-bottom: 4px; border-bottom: 2px solid transparent; transition: 0.2s;
+}
+.role-tabs span.active {
+  font-weight: 700; border-bottom: 3px solid #1a1a1a;
+}
+.role-sep {
+  color: #ccc; cursor: default !important; padding-bottom: 0 !important;
+  border-bottom: none !important; font-weight: 300 !important;
 }
 
-.role-tabs button {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  background: #f5f5f5;
-  cursor: pointer;
-  font-size: 14px;
-  transition: 0.2s;
-}
-
-.role-tabs button.active {
-  background: #1890ff;
-  color: #fff;
-}
-
+/* ===== 表单 ===== */
 .login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.form-input {
+  width: 100%; height: 52px; padding: 0 18px;
+  border: 1px solid #bbb; border-radius: 8px;
+  font-size: 16px; color: #333; outline: none; background: #fff;
+  box-sizing: border-box; transition: border-color 0.2s;
+}
+.form-input::placeholder { color: #aaa; }
+.form-input:focus { border-color: #1a1a1a; }
+
+/* 密码框 */
+.pwd-wrap { position: relative; }
+.pwd-wrap .form-input { padding-right: 48px; }
+.pwd-eye {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  cursor: pointer; display: flex; align-items: center; opacity: 0.5; transition: opacity 0.2s;
+}
+.pwd-eye:hover { opacity: 0.8; }
+
+/* ===== 记住账号 ===== */
+.remember-row {
+  display: flex; align-items: center; gap: 8px; font-size: 16px; color: #1a1a1a; cursor: pointer;
+}
+.remember-row input[type='checkbox'] {
+  accent-color: #1a1a1a; cursor: pointer; width: 18px; height: 18px; margin: 0;
 }
 
-.form-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* ===== 登录按钮 ===== */
+.login-btn {
+  width: 100%; height: 52px;
+  background: #fff; color: #1a1a1a; border: 1px solid #1a1a1a; border-radius: 8px;
+  font-size: 17px; cursor: pointer; transition: 0.2s;
+  display: flex; align-items: center; justify-content: center;
 }
+.login-btn:hover { background: #f5f5f5; }
+.login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.form-item label {
-  font-size: 14px;
-  color: #666;
-}
-
-.form-item input {
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.form-item input:focus {
-  border-color: #1890ff;
-}
-
-.submit-btn {
-  padding: 12px;
-  background: #1890ff;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
+/* ===== 底部链接 ===== */
 .footer-links {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 20px;
+  display: flex; justify-content: space-between; margin-top: 40px; padding: 0;
 }
-
 .footer-links a {
-  font-size: 13px;
-  color: #1890ff;
-  text-decoration: none;
+  font-size: 15px; color: #1a1a1a; text-decoration: none;
 }
+.footer-links a:hover { opacity: 0.7; }
 </style>
