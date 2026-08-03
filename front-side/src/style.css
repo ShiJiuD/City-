@@ -9,3 +9,8 @@ html, body, #app {
   height: 100%;
   overflow: hidden;
 }
+
+#app {
+  display: flex;
+  flex-direction: column;
+}

@@ -72,3 +72,45 @@ export interface ResetPasswordDTO {
   role: Role
   password: string
 }
+
+// ========== 首页 ==========
+
+/** 轮播图 Banner */
+export interface Banner {
+  id: number
+  imageUrl: string
+  title: string
+}
+
+/** 热门展览 */
+export interface HotExhibition {
+  id: number
+  posterImage: string
+  title: string
+  subtitle: string
+  galleryName: string
+  type: number
+}
+
+/** 美术馆 */
+export interface Gallery {
+  id: number
+  name: string
+  coverImage: string
+  address: string
+  exhibitionCount: number
+  type: number
+}
+
+/** 首页聚合数据 */
+export interface HomeData {
+  banners: Banner[]
+  hotExhibitions: HotExhibition[]
+  galleries: Gallery[]
+}
+
+/** 美术馆列表查询参数 */
+export interface GalleryQuery {
+  city?: string
+  keyword?: string
+}
