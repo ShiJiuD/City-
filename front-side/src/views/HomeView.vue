@@ -128,7 +128,56 @@ const galleryList = [
   { id: 4, cover: banner04_4, name: '金鹰美术馆', address: '南京·建邺区应天大街888号', count: 1 },
 ]
 
-// ===== 计算属性 =====
+// ===== 计算属性：API 数据驱动结构 + 本地图片展示 =====
+
+/** Banner：API 数据驱动，本地图片展示。只有 API 未加载时才回退 */
+const displayBanners = computed(() => {
+  if (homeData.value) {
+    const list = homeData.value.banners || []
+    return list.map((b, i) => ({
+      id: b.id,
+      imageUrl: bannerList[i % bannerList.length].imageUrl,
+      title: b.title,
+    }))
+  }
+  return bannerList.map((b) => ({ ...b, title: '' }))
+})
+
+/** 热门展览：API 数据驱动，本地图片展示。只有 API 未加载时才回退 */
+const displayHotExhibitions = computed(() => {
+  if (homeData.value) {
+    const list = homeData.value.hotExhibitions || []
+    return list.map((ex, i) => ({
+      id: ex.id,
+      posterImage: coverflowList[i % coverflowList.length].posterImage,
+      title: ex.title,
+      subtitle: ex.subtitle,
+      galleryName: ex.galleryName,
+      type: ex.type,
+    }))
+  }
+  return coverflowList.map((ex) => ({
+    ...ex,
+    subtitle: '',
+    galleryName: '',
+    type: 0,
+  }))
+})
+
+/** 热门美术馆：API 数据驱动，本地图片展示。只有 API 未加载时才回退 */
+const displayGalleries = computed(() => {
+  if (homeData.value) {
+    const list = homeData.value.galleries || []
+    return list.map((g, i) => ({
+      id: g.id,
+      cover: galleryList[i % galleryList.length].cover,
+      name: g.name,
+      address: g.address,
+      count: g.exhibitionCount,
+    }))
+  }
+  return galleryList
+})
 
 // ===== 获取首页数据 =====
 async function fetchHomeData() {
@@ -220,6 +269,13 @@ onMounted(() => {
   fetchHomeData()
 })
 
+// 城市切换时重新请求
+watch(() => cityStore.currentCity, () => {
+  if (cityStore.currentCity) {
+    fetchHomeData()
+  }
+})
+
 // 数据加载完成后初始化 Swiper + 注册滚动事件
 watch(loading, async (val) => {
   if (!val && !error.value && homeData.value) {
@@ -257,7 +313,7 @@ onUnmounted(() => {
           <div class="swiper banner-swiper">
             <div class="swiper-wrapper">
               <div
-                v-for="banner in bannerList"
+                v-for="banner in displayBanners"
                 :key="banner.id"
                 class="swiper-slide"
               >
@@ -287,7 +343,7 @@ onUnmounted(() => {
           <div class="swiper coverflow-swiper">
             <div class="swiper-wrapper">
               <div
-                v-for="item in coverflowList"
+                v-for="item in displayHotExhibitions"
                 :key="item.id"
                 class="swiper-slide coverflow-slide"
               >
@@ -340,7 +396,7 @@ onUnmounted(() => {
           </div>
           <div class="gallery-grid">
             <div
-              v-for="g in galleryList"
+              v-for="g in displayGalleries"
               :key="g.id"
               class="gallery-card"
             >
