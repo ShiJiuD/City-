@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useCityStore } from '../stores/city'
 import logoImage from '../assets/home/LOGO.png'
-import searchIcon from '../assets/home/search.png'
 import localIcon from '../assets/home/local.png'
 import personIcon from '../assets/home/person.png'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
-
-const searchText = ref('')
+const cityStore = useCityStore()
 
 /** 导航 Tab 配置 */
 const tabs = [
@@ -29,14 +27,6 @@ function isActive(path: string): boolean {
 function navigateTo(path: string) {
   if (route.path !== path) {
     router.push(path)
-  }
-}
-
-/** 搜索 */
-function handleSearch() {
-  if (searchText.value.trim()) {
-    // TODO: 跳转搜索页或触发搜索逻辑
-    console.log('搜索:', searchText.value)
   }
 }
 
@@ -78,24 +68,10 @@ function handleLogout() {
 
       <!-- ===== 右侧：功能区 ===== -->
       <div class="navbar-right">
-        <!-- 搜索框 -->
-        <div class="search-box">
-          <input
-            v-model="searchText"
-            type="text"
-            placeholder="搜索展览..."
-            class="search-input"
-            @keyup.enter="handleSearch"
-          />
-          <button class="search-btn" @click="handleSearch">
-            <img :src="searchIcon" alt="搜索" class="search-icon" />
-          </button>
-        </div>
-
         <!-- 城市选择 -->
         <button class="action-btn" @click="handleCitySelect">
           <img :src="localIcon" alt="城市" class="action-icon" />
-          <span>城市选择</span>
+          <span>{{ cityStore.currentCity || '城市选择' }}</span>
         </button>
 
         <!-- 个人中心 / 登录注册 -->
@@ -171,7 +147,7 @@ function handleLogout() {
 .nav-tab {
   background: none;
   border: none;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
@@ -215,63 +191,6 @@ function handleLogout() {
   align-items: center;
   gap: 16px;
   flex-shrink: 0;
-}
-
-/* 搜索框 */
-.search-box {
-  display: flex;
-  align-items: center;
-  background: #fff;
-  border-radius: 9999px;
-  overflow: hidden;
-  height: 34px;
-  width: 180px;
-  transition: width 0.3s ease;
-}
-
-.search-box:focus-within {
-  width: 210px;
-  box-shadow: 0 0 0 2px rgba(197, 155, 39, 0.3);
-}
-
-.search-input {
-  flex: 1;
-  height: 100%;
-  border: none;
-  outline: none;
-  padding: 0 6px 0 14px;
-  font-size: 13px;
-  color: #333;
-  background: transparent;
-  min-width: 0;
-}
-
-.search-input::placeholder {
-  color: #bbb;
-}
-
-.search-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.2s;
-  border-radius: 50%;
-}
-
-.search-btn:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.search-icon {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
 }
 
 /* 功能区按钮 */

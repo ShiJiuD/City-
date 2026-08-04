@@ -1,10 +1,29 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCityStore } from '../stores/city'
 import { getHomeData } from '../api/home'
 import type { HomeData } from '../types'
 import FooterBar from '../components/FooterBar.vue'
+
+// ===== 本地 Banner 图片 =====
+import banner01_1 from '../assets/home/banner01-1.png'
+import banner01_2 from '../assets/home/banner01-2.jpg'
+import banner01_3 from '../assets/home/banner01-3.png'
+import banner02_1 from '../assets/home/banner02-1.png'
+import banner02_2 from '../assets/home/banner02-2.png'
+import banner02_3 from '../assets/home/banner02-3.png'
+import banner03_1 from '../assets/home/banner03-1.png'
+import banner03_2 from '../assets/home/banner03-2.png'
+import banner03_3 from '../assets/home/banner03-3.png'
+import banner03_4 from '../assets/home/banner03-4.png'
+import banner04_1 from '../assets/home/banner04-1.png'
+import banner04_2 from '../assets/home/banner04-2.jpg'
+import banner04_3 from '../assets/home/banner04-3.png'
+import banner04_4 from '../assets/home/banner04-4.png'
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+declare var Swiper: any
 
 const router = useRouter()
 const cityStore = useCityStore()
@@ -13,16 +32,103 @@ const cityStore = useCityStore()
 const loading = ref(true)
 const error = ref('')
 const homeData = ref<HomeData | null>(null)
+const homePage = ref<HTMLElement | null>(null)
 
-// Banner 轮播
-const bannerIndex = ref(0)
-const bannerPaused = ref(false)
-let bannerTimer: ReturnType<typeof setInterval> | null = null
+// ===== 自定义慢速强制滚动捕捉 =====
+let isScrolling = false
+const SNAP_DURATION = 900 // 动画时长(ms)，越大越慢
+
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+}
+
+function smoothScrollTo(target: number, duration: number) {
+  const container = homePage.value
+  if (!container) return
+  const start = container.scrollTop
+  const distance = target - start
+  const startTime = performance.now()
+
+  isScrolling = true
+
+  function step(currentTime: number) {
+    const elapsed = currentTime - startTime
+    const progress = Math.min(elapsed / duration, 1)
+    const eased = easeInOutCubic(progress)
+    container!.scrollTop = start + distance * eased
+
+    if (progress < 1) {
+      requestAnimationFrame(step)
+    } else {
+      isScrolling = false
+    }
+  }
+
+  requestAnimationFrame(step)
+}
+
+function handleWheel(e: WheelEvent) {
+  const container = homePage.value
+  if (!container) return
+  const bannerHeight = container.clientHeight // Banner 占满视口
+  const scrollTop = container.scrollTop
+
+  // 向下滚动：在 Banner 区域 → 滑到内容区
+  if (e.deltaY > 0 && scrollTop < bannerHeight - 10) {
+    e.preventDefault()
+    if (!isScrolling) {
+      smoothScrollTo(bannerHeight, SNAP_DURATION)
+    }
+    return
+  }
+
+  // 向上滚动：在内容区顶部 → 滑回 Banner
+  if (e.deltaY < 0 && scrollTop <= bannerHeight + 10 && scrollTop > 0) {
+    e.preventDefault()
+    if (!isScrolling) {
+      smoothScrollTo(0, SNAP_DURATION)
+    }
+    return
+  }
+}
+
+// Swiper 实例
+let bannerSwiper: any = null
+let coverflowSwiper: any = null
+let recommendSwiper: any = null
+
+// ===== 三个 Swiper 本地数据 =====
+// Swiper 1：顶部 Banner
+const bannerList = [
+  { id: 1, imageUrl: banner01_1 },
+  { id: 2, imageUrl: banner01_2 },
+  { id: 3, imageUrl: banner01_3 },
+]
+
+// Swiper 2：热门展览 图片列表
+const coverflowList = [
+  { id: 1, posterImage: banner02_1 },
+  { id: 2, posterImage: banner02_2 },
+  { id: 3, posterImage: banner02_3 },
+]
+
+// Swiper 3：艺览智荐
+const recommendList = [
+  { id: 1, poster: banner03_1 },
+  { id: 2, poster: banner03_2 },
+  { id: 3, poster: banner03_3 },
+  { id: 4, poster: banner03_4 },
+]
+
+// 热门美术馆本地数据
+const galleryList = [
+  { id: 1, cover: banner04_1, name: '江苏省美术馆', address: '南京·秦淮区四条巷12号', count: 3 },
+  { id: 2, cover: banner04_2, name: '四方美术馆', address: '南京·浦口区珍七路9号', count: 2 },
+  { id: 3, cover: banner04_3, name: '德基美术馆', address: '南京·玄武区中山路18号', count: 5 },
+  { id: 4, cover: banner04_4, name: '金鹰美术馆', address: '南京·建邺区应天大街888号', count: 1 },
+]
 
 // ===== 计算属性 =====
-const banners = () => homeData.value?.banners ?? []
-const hotExhibitions = () => homeData.value?.hotExhibitions ?? []
-const galleries = () => homeData.value?.galleries ?? []
 
 // ===== 获取首页数据 =====
 async function fetchHomeData() {
@@ -32,10 +138,6 @@ async function fetchHomeData() {
     const res = await getHomeData(cityStore.currentCity || undefined)
     if (res.code === 1) {
       homeData.value = res.data
-      // 只有多张轮播图时才启动自动播放
-      if ((res.data.banners?.length ?? 0) > 1) {
-        startBannerAutoPlay()
-      }
     } else {
       error.value = res.msg || '数据加载失败'
     }
@@ -46,35 +148,49 @@ async function fetchHomeData() {
   }
 }
 
-// ===== Banner 轮播逻辑 =====
-function startBannerAutoPlay() {
-  stopBannerAutoPlay()
-  bannerTimer = setInterval(() => {
-    if (!bannerPaused.value && banners().length > 1) {
-      bannerIndex.value = (bannerIndex.value + 1) % banners().length
-    }
-  }, 3000)
+// ===== 初始化 Swiper =====
+function initSwipers() {
+  // 区域一：Banner Swiper（本地图片）
+  bannerSwiper = new Swiper('.banner-swiper', {
+    slidesPerView: 1,
+    loop: true,
+    autoplay: { delay: 3000, disableOnInteraction: false },
+    pagination: {
+      el: '.banner-pagination',
+      clickable: true,
+    },
+    observer: true,
+    observeParents: true,
+  })
+
+  // 区域二：热门展览 Coverflow 层叠
+  coverflowSwiper = new Swiper('.coverflow-swiper', {
+    effect: 'coverflow',
+    centeredSlides: true,
+    slidesPerView: 'auto',
+    coverflowEffect: {
+      rotate: 0,
+      stretch: 40,
+      depth: 300,
+      modifier: 1.2,
+      slideShadows: false,
+    },
+    watchSlidesProgress: true,
+  })
+
+  // 区域三：艺览智荐 双列轮播
+  recommendSwiper = new Swiper('.recommend-swiper', {
+    slidesPerView: 2,
+    spaceBetween: 16,
+    loop: true,
+    autoplay: { delay: 3500, disableOnInteraction: false },
+  })
 }
 
-function stopBannerAutoPlay() {
-  if (bannerTimer) {
-    clearInterval(bannerTimer)
-    bannerTimer = null
-  }
-}
-
-function goToBanner(index: number) {
-  bannerIndex.value = index
-}
-
-function prevBanner() {
-  const list = banners()
-  bannerIndex.value = bannerIndex.value === 0 ? list.length - 1 : bannerIndex.value - 1
-}
-
-function nextBanner() {
-  const list = banners()
-  bannerIndex.value = bannerIndex.value === list.length - 1 ? 0 : bannerIndex.value + 1
+function destroySwipers() {
+  bannerSwiper?.destroy(true, true)
+  coverflowSwiper?.destroy(true, true)
+  recommendSwiper?.destroy(true, true)
 }
 
 // ===== 路由跳转 =====
@@ -104,13 +220,23 @@ onMounted(() => {
   fetchHomeData()
 })
 
+// 数据加载完成后初始化 Swiper + 注册滚动事件
+watch(loading, async (val) => {
+  if (!val && !error.value && homeData.value) {
+    await nextTick()
+    initSwipers()
+    homePage.value?.addEventListener('wheel', handleWheel, { passive: false })
+  }
+})
+
 onUnmounted(() => {
-  stopBannerAutoPlay()
+  destroySwipers()
+  homePage.value?.removeEventListener('wheel', handleWheel)
 })
 </script>
 
 <template>
-  <div class="home-page">
+  <div ref="homePage" class="home-page">
     <!-- ===== 加载态 ===== -->
     <div v-if="loading" class="status-container">
       <div class="spinner"></div>
@@ -123,146 +249,118 @@ onUnmounted(() => {
       <button class="retry-btn" @click="retry">重试</button>
     </div>
 
-    <!-- ===== 空数据态 ===== -->
-    <div v-else-if="!homeData || (!banners().length && !hotExhibitions().length && !galleries().length)" class="status-container">
-      <p class="status-text">暂无展览内容，敬请期待</p>
-    </div>
-
     <!-- ===== 正常内容 ===== -->
     <template v-else>
       <main class="home-main">
-        <!-- Banner 轮播区 -->
-        <section v-if="banners().length" class="banner-section"
-          @mouseenter="bannerPaused = true"
-          @mouseleave="bannerPaused = false"
-        >
-          <div class="banner-viewport">
-            <div
-              class="banner-track"
-              :style="{ transform: `translateX(-${bannerIndex * 100}%)` }"
-            >
+        <!-- ===== 区域一：顶部主 Banner Swiper（本地图片） ===== -->
+        <section class="banner-section">
+          <div class="swiper banner-swiper">
+            <div class="swiper-wrapper">
               <div
-                v-for="banner in banners()"
+                v-for="banner in bannerList"
                 :key="banner.id"
-                class="banner-slide"
+                class="swiper-slide"
               >
                 <img
                   :src="banner.imageUrl"
-                  :alt="banner.title"
+                  alt="banner"
                   class="banner-img"
                 />
-                <div class="banner-caption">
-                  <h2>{{ banner.title }}</h2>
-                </div>
               </div>
             </div>
+            <div class="banner-pagination"></div>
+          </div>
+        </section>
 
-            <!-- 左右箭头 -->
-            <button v-if="banners().length > 1" class="banner-arrow left" @click="prevBanner">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-            <button v-if="banners().length > 1" class="banner-arrow right" @click="nextBanner">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </button>
+        <!-- ===== 首屏以下内容容器 ===== -->
+        <div class="home-content">
 
-            <!-- 圆点指示器 -->
-            <div v-if="banners().length > 1" class="banner-dots">
-              <button
-                v-for="(_, idx) in banners()"
-                :key="idx"
-                :class="['dot', { active: idx === bannerIndex }]"
-                @click="goToBanner(idx)"
-              />
+        <!-- ===== 区域二：当前热门展览 Coverflow ===== -->
+        <section class="coverflow-section">
+          <div class="coverflow-header">
+            <h3 class="coverflow-heading">当前热门展览</h3>
+            <div class="coverflow-sub-wrap">
+              <div class="coverflow-line"></div>
+              <span class="coverflow-sub">EXHIBITION</span>
+            </div>
+          </div>
+          <div class="swiper coverflow-swiper">
+            <div class="swiper-wrapper">
+              <div
+                v-for="item in coverflowList"
+                :key="item.id"
+                class="swiper-slide coverflow-slide"
+              >
+                <img
+                  :src="item.posterImage"
+                  alt="展览"
+                  class="coverflow-img"
+                />
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- 当前热门展览 -->
-        <section v-if="hotExhibitions().length" class="exhibition-section">
-          <div class="section-header">
-            <h3 class="section-title">当前热门展览</h3>
-            <button class="more-link" @click="goToExhibitions">查看更多 →</button>
+        <!-- ===== 区域三：艺览智荐 多列轮播 ===== -->
+        <section class="recommend-section">
+          <div class="recommend-header">
+            <div class="recommend-left">
+              <span class="recommend-label">RECOMMEND</span>
+              <h3 class="recommend-title">艺览智荐</h3>
+              <p class="recommend-desc">基于AI个性化推荐展览</p>
+            </div>
+            <button class="recommend-more">查看更多 &gt;</button>
           </div>
-          <div class="exhibition-scroll">
-            <div
-              v-for="item in hotExhibitions()"
-              :key="item.id"
-              class="exhibition-card"
-              @click="goToExhibition(item.id)"
-            >
-              <img
-                :src="item.posterImage"
-                :alt="item.title"
-                class="exhibition-poster"
-
-              />
-              <div class="exhibition-info">
-                <h4 class="exhibition-title">{{ item.title }}</h4>
-                <p class="exhibition-subtitle">{{ item.subtitle }}</p>
-                <span class="exhibition-gallery">{{ item.galleryName }}</span>
+          <div class="swiper recommend-swiper">
+            <div class="swiper-wrapper">
+              <div
+                v-for="item in recommendList"
+                :key="item.id"
+                class="swiper-slide recommend-slide"
+              >
+                <img
+                  :src="item.poster"
+                  alt="推荐"
+                  class="recommend-img"
+                />
               </div>
             </div>
           </div>
         </section>
 
         <!-- 热门美术馆 -->
-        <section v-if="galleries().length" class="gallery-section">
-          <div class="section-header">
-            <h3 class="section-title">热门美术馆</h3>
-            <button class="more-link" @click="goToGalleries">查看更多 →</button>
+        <section class="gallery-section">
+          <div class="gallery-header">
+            <div class="gallery-title-area">
+              <h3 class="gallery-title">热门美术馆</h3>
+              <div class="gallery-line"></div>
+              <span class="gallery-sub">GALLERY</span>
+            </div>
+            <button class="gallery-more" @click="goToGalleries">查看更多 &gt;</button>
           </div>
           <div class="gallery-grid">
             <div
-              v-for="g in galleries()"
+              v-for="g in galleryList"
               :key="g.id"
               class="gallery-card"
-              @click="goToGallery(g.id)"
             >
               <img
-                :src="g.coverImage"
+                :src="g.cover"
                 :alt="g.name"
                 class="gallery-cover"
-
               />
               <div class="gallery-info">
                 <h4 class="gallery-name">{{ g.name }}</h4>
                 <p class="gallery-address">{{ g.address }}</p>
-                <span class="gallery-count">{{ g.exhibitionCount }} 场展览</span>
+                <p class="gallery-count">{{ g.count }} 场展览</p>
+                <button class="gallery-detail" @click="goToGallery(g.id)">查看详情</button>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 路由验证示例区 -->
-        <section class="demo-section">
-          <div class="section-header">
-            <h3 class="section-title">页面导航验证</h3>
-          </div>
-          <div class="demo-grid">
-            <div class="demo-card" @click="goToExhibitions">
-              <span class="demo-icon">🎨</span>
-              <h4>全部展览</h4>
-              <p>浏览所有展览信息</p>
-              <span class="demo-route">/exhibitions</span>
-            </div>
-            <div class="demo-card" @click="goToGalleries">
-              <span class="demo-icon">🏛️</span>
-              <h4>美术馆</h4>
-              <p>发现城市艺术空间</p>
-              <span class="demo-route">/galleries</span>
-            </div>
-            <div class="demo-card" @click="router.push('/home')">
-              <span class="demo-icon">🏠</span>
-              <h4>首页</h4>
-              <p>返回首页</p>
-              <span class="demo-route">/home</span>
-            </div>
-          </div>
-        </section>
+        </div>
+        <!-- ===== .home-content 结束 ===== -->
       </main>
     </template>
 
@@ -312,7 +410,6 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 重试按钮 */
 .retry-btn {
   padding: 10px 32px;
   background: #5A5E61;
@@ -330,9 +427,14 @@ onUnmounted(() => {
 
 /* ===== 主内容区 ===== */
 .home-main {
+  /* 去除容器约束，让 Banner 全屏满铺 */
+}
+
+/* ===== 首屏以下内容容器 ===== */
+.home-content {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 24px 32px 48px;
+  padding: 36px 32px 48px;
 }
 
 /* ===== Section 通用 ===== */
@@ -363,283 +465,310 @@ onUnmounted(() => {
   opacity: 0.7;
 }
 
-/* ===== Banner 轮播 ===== */
+/* ===== 区域一：Banner Swiper（全屏沉浸式） ===== */
 .banner-section {
-  margin-bottom: 36px;
-}
-
-.banner-viewport {
-  position: relative;
   width: 100%;
+  height: calc(100vh - 64px); /* NavBar 64px + Banner = 100vh 精准满屏 */
   overflow: hidden;
-  border-radius: 12px;
-  aspect-ratio: 1200 / 420;
 }
 
-.banner-track {
-  display: flex;
-  transition: transform 0.5s ease;
+.banner-swiper {
+  width: 100%;
   height: 100%;
+  overflow: hidden;
+  position: relative; /* 为分页器绝对定位提供锚点 */
 }
 
-.banner-slide {
-  min-width: 100%;
-  position: relative;
+/* Swiper Slide 和内部图片：强制填满 + 居中裁切 */
+.banner-swiper .swiper-slide {
+  width: 100%;
+  height: 100%;
 }
 
 .banner-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   display: block;
 }
 
-.banner-caption {
+/* Swiper 分页器：悬浮在图片上方 */
+:deep(.banner-pagination) {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24px 32px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
-}
-
-.banner-caption h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #fff;
-}
-
-/* 箭头 */
-.banner-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.3);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.banner-arrow:hover {
-  background: rgba(0, 0, 0, 0.55);
-}
-
-.banner-arrow.left { left: 12px; }
-.banner-arrow.right { right: 12px; }
-
-/* 圆点 */
-.banner-dots {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
+  bottom: 24px !important;
+  left: 50% !important;
   transform: translateX(-50%);
-  display: flex;
-  gap: 10px;
+  width: auto !important;
+  z-index: 10;
 }
 
-.dot {
+:deep(.banner-pagination .swiper-pagination-bullet) {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.25s;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 1;
+  margin: 0 6px;
+  transition: background 0.3s;
 }
 
-.dot.active {
+:deep(.banner-pagination .swiper-pagination-bullet-active) {
   background: #fff;
-  border-color: #fff;
 }
 
-/* ===== 热门展览卡片 ===== */
-.exhibition-section {
+/* ===== 区域二：热门展览 Coverflow 层叠 ===== */
+.coverflow-section {
   margin-bottom: 36px;
 }
 
-.exhibition-scroll {
+/* 居中标题 + 横线 + 英文 */
+.coverflow-header {
   display: flex;
-  gap: 20px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scroll-snap-type: x mandatory;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
 }
 
-.exhibition-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-
-.exhibition-scroll::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 3px;
-}
-
-.exhibition-card {
-  min-width: 280px;
-  max-width: 280px;
-  background: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  scroll-snap-align: start;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.exhibition-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.exhibition-poster {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-}
-
-.exhibition-info {
-  padding: 14px 16px;
-}
-
-.exhibition-title {
-  font-size: 16px;
-  font-weight: 600;
+.coverflow-heading {
+  font-size: 32px;
+  font-weight: 400;
   color: #333;
-  margin: 0 0 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin: 0 0 10px;
 }
 
-.exhibition-subtitle {
+.coverflow-sub-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.coverflow-line {
+  width: 100%;
+  height: 2px;
+  background: #000;
+  margin-bottom: 10px;
+}
+
+.coverflow-sub {
+  font-size: 20px;
+  font-weight: 400;
+  color: #000;
+  letter-spacing: 6px;
+}
+
+.coverflow-swiper {
+  padding: 30px 0 40px;
+}
+
+.coverflow-slide {
+  width: 520px;
+}
+
+.coverflow-img {
+  width: 100%;
+  height: 480px;
+  object-fit: cover;
+  display: block;
+  border-radius: 8px;
+}
+
+.coverflow-slide:not(.swiper-slide-active) {
+  opacity: 0.55;
+}
+
+/* ===== 区域三：艺览智荐 双列轮播 ===== */
+.recommend-section {
+  margin-bottom: 36px;
+}
+
+/* 左右两端对齐标题 */
+.recommend-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.recommend-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.recommend-label {
   font-size: 12px;
-  color: #999;
-  margin: 0 0 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: #000;
+  letter-spacing: 4px;
+  margin-bottom: 4px;
 }
 
-.exhibition-gallery {
-  font-size: 12px;
-  color: #C59B27;
-  font-weight: 500;
+.recommend-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #000;
+  margin: 0 0 6px;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-color: #000;
+  text-decoration-thickness: 2px;
 }
 
-/* ===== 美术馆网格 ===== */
+.recommend-desc {
+  font-size: 13px;
+  color: #000;
+  margin: 0;
+}
+
+.recommend-more {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #888;
+  cursor: pointer;
+  padding: 6px 0;
+  transition: color 0.25s, transform 0.25s;
+  flex-shrink: 0;
+}
+
+.recommend-more:hover {
+  color: #333;
+  transform: translateX(3px);
+}
+
+.recommend-slide {
+  width: 540px;
+}
+
+.recommend-img {
+  width: 540px;
+  height: 811px;
+  object-fit: cover;
+  display: block;
+  border-radius: 8px;
+}
+
+/* ===== 热门美术馆 ===== */
 .gallery-section {
   margin-bottom: 36px;
 }
 
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 20px;
+/* Header */
+.gallery-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
 }
 
-.gallery-card {
-  background: #fff;
-  border-radius: 10px;
-  overflow: hidden;
+.gallery-title-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.gallery-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #000;
+  margin: 0 0 6px;
+}
+
+.gallery-line {
+  width: 100%;
+  height: 2px;
+  background: #000;
+  margin-bottom: 6px;
+}
+
+.gallery-sub {
+  font-size: 13px;
+  color: #000;
+  letter-spacing: 3px;
+}
+
+.gallery-more {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #888;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: color 0.25s, transform 0.25s;
+  flex-shrink: 0;
+}
+
+.gallery-more:hover {
+  color: #333;
+  transform: translateX(3px);
+}
+
+/* 2×2 网格 */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  column-gap: 44px;
+  row-gap: 54px;
+}
+
+/* 卡片 */
+.gallery-card {
+  width: 580px;
+  height: 680px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: transform 0.25s, box-shadow 0.25s;
 }
 
 .gallery-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
 }
 
 .gallery-cover {
-  width: 100%;
-  height: 180px;
+  width: 580px;
+  height: 500px;
   object-fit: cover;
+  display: block;
 }
 
 .gallery-info {
-  padding: 14px 16px;
+  padding: 14px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  height: 180px;
 }
 
 .gallery-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
+  font-size: 18px;
+  font-weight: 700;
+  color: #000;
   margin: 0 0 4px;
 }
 
 .gallery-address {
   font-size: 13px;
-  color: #888;
-  margin: 0 0 8px;
+  color: #000;
+  margin: 0 0 2px;
 }
 
 .gallery-count {
-  font-size: 12px;
-  color: #C59B27;
-  font-weight: 500;
+  font-size: 13px;
+  color: #000;
+  margin: 0;
 }
 
-/* ===== 路由验证 Demo 区 ===== */
-.demo-section {
-  margin-bottom: 24px;
-}
-
-.demo-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.demo-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 32px 24px;
-  background: #fff;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  border: 2px solid transparent;
-  text-align: center;
-}
-
-.demo-card:hover {
-  border-color: #C59B27;
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-}
-
-.demo-icon {
-  font-size: 40px;
-  margin-bottom: 12px;
-}
-
-.demo-card h4 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin: 0 0 8px;
-}
-
-.demo-card p {
+.gallery-detail {
+  background: none;
+  border: none;
   font-size: 13px;
   color: #888;
-  margin: 0 0 12px;
+  cursor: pointer;
+  align-self: flex-end;
+  margin-top: auto;
+  padding: 0;
+  transition: color 0.2s;
 }
 
-.demo-route {
-  font-size: 11px;
-  color: #C59B27;
-  font-family: monospace;
-  background: #fdf6e9;
-  padding: 3px 10px;
-  border-radius: 4px;
+.gallery-detail:hover {
+  color: #000;
 }
 </style>

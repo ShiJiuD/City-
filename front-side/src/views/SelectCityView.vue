@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCityStore } from '../stores/city'
 import FooterBar from '../components/FooterBar.vue'
-import localIcon from '../assets/home/local.png'
 import searchIcon from '../assets/home/search.png'
 
 const router = useRouter()
@@ -26,34 +25,10 @@ const filteredCities = computed(() => {
 /** 搜索时热门城市是否可见 */
 const showPopular = computed(() => !searchText.value.trim())
 
-// ===== Toast =====
-const toastVisible = ref(false)
-const toastMsg = ref('')
-let toastTimer: ReturnType<typeof setTimeout> | null = null
-
-function showToast(msg: string) {
-  if (toastTimer) clearTimeout(toastTimer)
-  toastMsg.value = msg
-  toastVisible.value = true
-}
-
 // ===== 选择城市 =====
 function selectCity(city: string) {
   cityStore.setCity(city)
-  showToast(`已切换到${city}，即将为您跳转首页...`)
-  toastTimer = setTimeout(() => {
-    toastVisible.value = false
-    router.push('/home')
-  }, 3000)
-}
-
-// ===== 返回 =====
-function goBack() {
-  if (cityStore.hasCity) {
-    router.back()
-  } else {
-    router.push('/home')
-  }
+  router.push('/home')
 }
 
 // ===== 申请开通 =====
@@ -65,30 +40,6 @@ function handleApply() {
 
 <template>
   <div class="select-city-page">
-    <!-- Toast 提示 -->
-    <Transition name="toast">
-      <div v-if="toastVisible" class="toast-overlay">
-        <div class="toast-box">
-          <span class="toast-icon">✓</span>
-          <span class="toast-text">{{ toastMsg }}</span>
-        </div>
-      </div>
-    </Transition>
-
-    <!-- ===== 顶部 Header ===== -->
-    <header class="sc-header">
-      <button class="back-btn" @click="goBack">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
-        <span>返回</span>
-      </button>
-      <div class="header-right">
-        <img :src="localIcon" alt="城市" class="header-icon" />
-        <span>城市选择</span>
-      </div>
-    </header>
-
     <!-- ===== 主内容区 ===== -->
     <main class="sc-main">
       <div class="sc-content">
@@ -97,7 +48,7 @@ function handleApply() {
         <p class="sc-subtitle">切换城市以查看该城市的美术馆与展览</p>
         <div class="sc-divider"></div>
 
-        <!-- 模块1：当前城市 -->
+        <!-- 模块1：当前城市 + 搜索 -->
         <section class="sc-section">
           <h2 class="section-heading">
             <span class="heading-bar"></span>
@@ -105,19 +56,17 @@ function handleApply() {
           </h2>
           <div class="current-city-row">
             <span class="current-city-pill">{{ cityStore.currentCity || '未选择' }}</span>
+            <div class="search-wrap">
+              <input
+                v-model="searchText"
+                type="text"
+                placeholder="搜索城市"
+                class="city-search-input"
+              />
+              <img :src="searchIcon" alt="搜索" class="city-search-icon" />
+            </div>
           </div>
         </section>
-
-        <!-- 搜索框 -->
-        <div class="search-wrap">
-          <input
-            v-model="searchText"
-            type="text"
-            placeholder="搜索城市"
-            class="city-search-input"
-          />
-          <img :src="searchIcon" alt="搜索" class="city-search-icon" />
-        </div>
 
         <!-- 模块2：热门城市 -->
         <section v-if="showPopular" class="sc-section">
@@ -179,55 +128,10 @@ function handleApply() {
   overflow-y: auto;
 }
 
-/* ===== 顶部 Header ===== */
-.sc-header {
-  width: 100%;
-  height: 56px;
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  flex-shrink: 0;
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 15px;
-  cursor: pointer;
-  padding: 6px 8px;
-  border-radius: 6px;
-  transition: background 0.2s;
-}
-
-.back-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #fff;
-  font-size: 14px;
-}
-
-.header-icon {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-}
-
 /* ===== 主内容 ===== */
 .sc-main {
   flex: 1;
-  overflow-y: auto;
-  padding: 32px 20px 48px;
+  padding: 48px 20px 48px;
 }
 
 .sc-content {
@@ -282,10 +186,12 @@ function handleApply() {
   flex-shrink: 0;
 }
 
-/* 当前城市胶囊 */
+/* 当前城市胶囊 + 搜索 */
 .current-city-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 }
 
 .current-city-pill {
@@ -296,12 +202,14 @@ function handleApply() {
   font-size: 15px;
   font-weight: 500;
   border-radius: 9999px;
+  flex-shrink: 0;
 }
 
 /* 搜索框 */
 .search-wrap {
   position: relative;
-  margin-bottom: 28px;
+  flex: 1;
+  max-width: 320px;
 }
 
 .city-search-input {
@@ -401,68 +309,5 @@ function handleApply() {
 
 .apply-link:hover {
   opacity: 0.7;
-}
-
-/* ===== Toast ===== */
-.toast-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 9999;
-}
-
-.toast-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 20px 36px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
-}
-
-.toast-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #4caf50;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.toast-text {
-  font-size: 16px;
-  color: #333;
-  font-weight: 500;
-}
-
-/* Toast 过渡动画 */
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.35s ease;
-}
-
-.toast-enter-from {
-  opacity: 0;
-}
-
-.toast-enter-from .toast-box {
-  transform: scale(0.85);
-}
-
-.toast-leave-to {
-  opacity: 0;
-}
-
-.toast-leave-to .toast-box {
-  transform: scale(0.85);
 }
 </style>
