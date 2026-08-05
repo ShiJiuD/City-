@@ -56,12 +56,14 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
                 .addPathPatterns("/api/**")          // 拦截所有 /api/admin/ 开头的请求
                 .excludePathPatterns("/api/app/login",
                         "/api/app/register",
+                        "/api/app/home",
+                        "/api/app/galleries",
                         "/api/admin/login",
                         "/api/admin/register",
                         "/api/send-code",
                         "/api/verify-code",
                         "/api/reset-password"
-                );   // 登录接口放行（没 token 怎么登录？）
+                );   // 登录接口 + 首页展览浏览接口放行
     }
 
 
