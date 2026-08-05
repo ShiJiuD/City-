@@ -18,6 +18,12 @@ public class RedisConstant {
     /** 分布式锁前缀 */
     public static final String KEY_DISTRIBUTE_LOCK = "dist:lock:";
 
+    // ====================== 秒杀 / 票务缓存 ======================
+    /** 展览库存（票数） */
+    public static final String KEY_EXHIBITION_STOCK = "exhibition:stock:";
+    /** 展览票价缓存（Hash: field=票种名, value=价格） */
+    public static final String KEY_EXHIBITION_PRICE = "exhibition:price:";
+
     // ====================== 过期时间 单位：毫秒 ======================
     /** 验证码有效期 5分钟 */
     public static final long CODE_TTL = 5 * 60 * 1000L;

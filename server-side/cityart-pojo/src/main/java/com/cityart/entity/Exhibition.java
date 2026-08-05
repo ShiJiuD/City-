@@ -101,6 +101,18 @@ public class Exhibition implements Serializable {
     private Integer type;
 
     /**
+     * 总票数（库存上限）
+     */
+    @TableField("total_stock")
+    private Integer totalStock;
+
+    /**
+     * 已售票数（冗余字段，下单 +quantity，退款/取消 -quantity）
+     */
+    @TableField("sold_count")
+    private Integer soldCount;
+
+    /**
      * 创建时间（INSERT 时自动填充）
      */
     @TableField(value = "create_time", fill = FieldFill.INSERT)

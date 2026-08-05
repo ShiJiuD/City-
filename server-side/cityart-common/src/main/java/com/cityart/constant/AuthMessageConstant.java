@@ -100,4 +100,29 @@ public class AuthMessageConstant {
      */
     public static final String UPDATE_PROFILE_SUCCESS = "修改成功";
 
+    // ==================== 订单模块 ====================
+
+    /** 无权查看该订单 */
+    public static final String ORDER_NO_PERMISSION = "无权查看该订单";
+    /** 无权操作该订单 */
+    public static final String ORDER_OP_NO_PERMISSION = "无权操作该订单";
+    /** 订单不存在 */
+    public static final String ORDER_NOT_EXIST = "订单不存在";
+    /** 当前状态不可取消 */
+    public static final String ORDER_CANNOT_CANCEL = "当前状态不可取消";
+    /** 仅已支付订单可申请退款 */
+    public static final String ORDER_REFUND_ONLY_PAID = "仅已支付订单可申请退款";
+    /** 展览库存不足 */
+    public static final String ORDER_STOCK_INSUFFICIENT = "展览库存不足，剩余票数已不够";
+    /** 展览不存在或未配置库存 */
+    public static final String ORDER_EXHIBITION_NO_STOCK = "展览不存在或未配置库存";
+    /** 不支持的票种 */
+    public static final String ORDER_TICKET_TYPE_UNSUPPORTED = "不支持的票种";
+    /** 下单成功 */
+    public static final String ORDER_CREATE_SUCCESS = "下单成功";
+    /** 取消成功 */
+    public static final String ORDER_CANCEL_SUCCESS = "取消成功";
+    /** 退款申请已提交 */
+    public static final String ORDER_REFUND_SUCCESS = "退款申请已提交";
+
 }
