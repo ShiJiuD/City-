@@ -1,5 +1,15 @@
-# Logs
-logs
+# ===== 依赖 =====
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ===== 构建产物 =====
+dist/
+dist-ssr/
+
+# ===== 日志 =====
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,18 +17,37 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# ===== 本地环境 & 缓存 =====
 *.local
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.eslintcache
+.cache/
 
-# Editor directories and files
+# ===== 编辑器 & IDE =====
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ===== TypeScript =====
+*.tsbuildinfo
+
+# ===== 测试 =====
+coverage/
+.nyc_output/
+
+# ===== Vite =====
+vite.config.*.timestamp-*
+
