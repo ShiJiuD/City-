@@ -32,7 +32,7 @@ public class OrderItemVO {
     /** 观展日期/场次时间 */
     private LocalDateTime visitDate;
 
-    /** 票种名称（如"成人票"、"学生票"） */
+    /** 票种名称：成人票/学生票/儿童票 */
     private String ticketType;
 
     /** 购买数量 */

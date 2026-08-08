@@ -17,6 +17,7 @@ import com.cityart.mapper.OrderItemMapper;
 import com.cityart.mapper.OrdersMapper;
 import com.cityart.service.OrderService;
 import com.cityart.utils.RedisIdWorker;
+import com.cityart.vo.CreateOrderVO;
 import com.cityart.vo.OrderItemVO;
 import com.cityart.vo.OrderPageVO;
 import com.cityart.vo.OrderVO;
@@ -27,8 +28,10 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -59,16 +62,6 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
     private final StringRedisTemplate stringRedisTemplate;
     private final OrderStreamConsumer orderStreamConsumer;
     private final RedisIdWorker redisIdWorker;
-
-    // ==================== 票价（临时硬编码，后续改为 ticket_type 表） ====================
-
-    /** 硬编码票价兜底表，Redis miss 时使用 */
-    private static final Map<String, BigDecimal> FALLBACK_PRICE_MAP = new HashMap<>();
-    static {
-        FALLBACK_PRICE_MAP.put("成人票", new BigDecimal("79.00"));
-        FALLBACK_PRICE_MAP.put("学生票", new BigDecimal("39.00"));
-        FALLBACK_PRICE_MAP.put("儿童票", new BigDecimal("29.00"));
-    }
 
     // ==================== Lua 脚本（从 resources/seckill.lua 加载） ====================
 
@@ -192,7 +185,7 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
      * 创建订单 —— 秒杀模式三阶段
      * <p>
      * <b>阶段一：Redis 预检（同步，毫秒级）</b><br>
-     * ① Redis Hash 查票价 → miss 走硬编码兜底并回写<br>
+     * ① 查票价：Redis 缓存优先，miss 时查 exhibition.price 并回写（统一票价，不区分票种）<br>
      * ② Lua 原子校验库存：GET stock >= quantity → DECRBY<br>
      * 　 key 不存在 → DB 懒加载后重试<br>
      * 　 库存不足 → 回滚已扣 key，抛异常
@@ -210,7 +203,7 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
      * @return 订单简要信息（订单号、状态、金额、明细）
      */
     @Override
-    public OrderVO createOrder(Long userId, CreateOrderDTO dto) {
+    public CreateOrderVO createOrder(Long userId, CreateOrderDTO dto) {
         log.info("创建订单（Redis预检）, userId: {}, items count: {}", userId, dto.getItems().size());
 
         BigDecimal totalAmount = BigDecimal.ZERO;                       // 累加总金额
@@ -219,15 +212,13 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
         Map<String, Integer> decrKeys = new HashMap<>();          // 已扣减的 key → quantity（预检失败回滚用）
 
         // ===== 阶段一：Redis 库存预检 + 原子扣减 =====
-        for (CreateOrderDTO.OrderItem itemDto : dto.getItems()) {
+        try {
+            for (CreateOrderDTO.OrderItem itemDto : dto.getItems()) {
             Long exhibitionId = itemDto.getExhibitionId();
             int quantity = itemDto.getQuantity();  // 购买量
 
-            // ① 查票价：Redis Hash 优先 → 硬编码兜底
-            BigDecimal unitPrice = getPriceFromCache(exhibitionId, itemDto.getTicketType());
-            if (unitPrice == null) {
-                throw new AuthException(AuthMessageConstant.ORDER_TICKET_TYPE_UNSUPPORTED + ": " + itemDto.getTicketType());
-            }
+            // ① 查票价：Redis 缓存优先，统一使用 exhibition.price（不区分票种）
+            BigDecimal unitPrice = getExhibitionPrice(exhibitionId, itemDto.getTicketType());
 
             // ② Lua 原子操作：GET + 判 + DECRBY（一次 Redis 往返）
             String stockKey = RedisConstant.KEY_EXHIBITION_STOCK + exhibitionId;
@@ -245,6 +236,7 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
             // 库存不足 → 回滚之前已扣减的 key，抛异常
             if (result == null || result == 0) {
                 rollbackStock(decrKeys);
+                decrKeys.clear();   // 已回滚，防止外层 catch 重复回滚
                 throw new AuthException(AuthMessageConstant.ORDER_STOCK_INSUFFICIENT);
             }
 
@@ -262,9 +254,13 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
             item.setTicketType(itemDto.getTicketType());
             item.setQuantity(quantity);
             item.setUnitPrice(unitPrice);
-            item.setVisitDate(LocalDateTime.parse(itemDto.getVisitDate(),
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            item.setVisitDate(parseVisitDate(itemDto.getVisitDate()));
             orderItems.add(item);
+            }
+        } catch (Exception e) {
+            // 预检过程中任何异常（如日期格式错误）都回滚已扣库存，防止库存泄漏
+            rollbackStock(decrKeys);
+            throw e;
         }
 
         // ===== 阶段二：生成全局唯一订单号 → XADD 到 Redis Stream → 立即返回 =====
@@ -276,18 +272,28 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
         msgData.put("orderNo", orderNo);
         msgData.put("userId", userId.toString());
         msgData.put("totalAmount", totalAmount.toString());
-        msgData.put("itemsJson", cn.hutool.json.JSONUtil.toJsonStr(orderItems));
+        // visitDate 显式格式化为字符串，避免 hutool 把 LocalDateTime 序列化成时间戳数字
+        List<Map<String, Object>> itemMaps = orderItems.stream().map(i -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("exhibitionId", i.getExhibitionId());
+            m.put("ticketType", i.getTicketType());
+            m.put("quantity", i.getQuantity());
+            m.put("unitPrice", i.getUnitPrice());
+            m.put("visitDate", i.getVisitDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            return m;
+        }).collect(Collectors.toList());
+        msgData.put("itemsJson", cn.hutool.json.JSONUtil.toJsonStr(itemMaps));
         msgData.put("qtyMapJson", cn.hutool.json.JSONUtil.toJsonStr(itemQuantityMap));
         // XADD stream:orders * field value ...
         stringRedisTemplate.opsForStream().add("stream:orders", msgData);
 
         // 立即返回给前端（DB 落库由消费者异步完成）
-        return OrderVO.builder()
+        return CreateOrderVO.builder()
                 .orderNo(orderNo)
-                .status(0) // 待支付
+                .status(1) // 下单即已支付
                 .totalAmount(totalAmount)
                 .createTime(LocalDateTime.now())
-                .items(orderItems.stream().map(i -> OrderItemVO.builder()
+                .items(orderItems.stream().map(i -> CreateOrderVO.Item.builder()
                         .exhibitionId(i.getExhibitionId())
                         .ticketType(i.getTicketType())
                         .quantity(i.getQuantity())
@@ -375,34 +381,33 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
     // ==================== 私有工具方法 ====================
 
     /**
-     * Cache-Aside 模式查票价
+     * 查票价：Redis 缓存优先 → miss 时查 exhibition.price 并回写（统一票价）
      * <p>
-     * ① Redis Hash 命中 → 直接返回<br>
-     * ② Redis miss → 硬编码 MAP 兜底 → 回写 Redis Hash → 返回<br>
-     * ③ 都没有 → 返回 null（上游抛异常"不支持的票种"）
+     * 无论前端传什么票种，都取该展览的 price（成人票票价），缓存为 String 一展一价。<br>
+     * ticketType 参数仅保留用于兼容票种维度（订单明细仍记录票种快照），不参与定价。
      *
      * @param exhibitionId 展览 ID
-     * @param ticketType   票种名称（如"成人票"）
-     * @return 票价，null 表示不支持的票种
+     * @param ticketType   票种名称（如"成人票"，仅记录展示，不影响价格）
+     * @return 票价
+     * @throws AuthException 展览不存在或未设置票价
      */
-    private BigDecimal getPriceFromCache(Long exhibitionId, String ticketType) {
+    private BigDecimal getExhibitionPrice(Long exhibitionId, String ticketType) {
         String priceKey = RedisConstant.KEY_EXHIBITION_PRICE + exhibitionId;
 
-        // ① Redis 查
-        Object cached = stringRedisTemplate.opsForHash().get(priceKey, ticketType);
+        // ① Redis 查（String 缓存：一展一价，不区分票种）
+        String cached = stringRedisTemplate.opsForValue().get(priceKey);
         if (cached != null) {
-            return new BigDecimal(cached.toString());
+            return new BigDecimal(cached);
         }
 
-        // ② 硬编码兜底
-        BigDecimal fallback = FALLBACK_PRICE_MAP.get(ticketType);
-        if (fallback != null) {
-            // 回写 Redis，下次命中
-            stringRedisTemplate.opsForHash().put(priceKey, ticketType, fallback.toString());
-            log.info("票价缓存回填, key: {}, field: {}, value: {}", priceKey, ticketType, fallback);
+        // ② Redis miss → 查 exhibition.price → 回写缓存
+        Exhibition exhibition = exhibitionMapper.selectById(exhibitionId);
+        if (exhibition == null || exhibition.getPrice() == null) {
+            throw new AuthException(AuthMessageConstant.ORDER_EXHIBITION_NO_PRICE);
         }
-
-        return fallback;
+        stringRedisTemplate.opsForValue().set(priceKey, exhibition.getPrice().toString());
+        log.info("票价缓存回填, key: {}, value: {}", priceKey, exhibition.getPrice());
+        return exhibition.getPrice();
     }
 
     /**
@@ -439,6 +444,25 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
         for (Map.Entry<String, Integer> entry : keyQtyMap.entrySet()) {
             stringRedisTemplate.opsForValue().increment(entry.getKey(), entry.getValue());
             log.info("Redis 库存回滚（预检失败）, key: {}, qty: {}", entry.getKey(), entry.getValue());
+        }
+    }
+
+    /**
+     * 解析观展日期：兼容 "yyyy-MM-dd"（视为当天 00:00:00）和 "yyyy-MM-dd HH:mm:ss"
+     *
+     * @param visitDate 前端传入的日期字符串
+     * @return LocalDateTime
+     * @throws AuthException 两种格式都不匹配时抛出
+     */
+    private LocalDateTime parseVisitDate(String visitDate) {
+        try {
+            return LocalDateTime.parse(visitDate, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (DateTimeParseException e) {
+            try {
+                return LocalDate.parse(visitDate).atStartOfDay();
+            } catch (DateTimeParseException e2) {
+                throw new AuthException(AuthMessageConstant.ORDER_VISIT_DATE_INVALID);
+            }
         }
     }
 

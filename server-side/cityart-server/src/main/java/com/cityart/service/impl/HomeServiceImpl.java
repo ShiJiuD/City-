@@ -51,7 +51,7 @@ public class HomeServiceImpl implements HomeService {
                 .collect(Collectors.toList());
         log.info("Banner 查询完毕，共 {} 条", bannerVOs.size());
 
-        // 2. 查询热门展览（is_hot=1, status=1），联表拿美术馆名称
+        // 2. 查询热门展览（is_hot=1 且当前在展期内），联表拿美术馆名称
         List<HomeExhibitionVO> hotExhibitions = exhibitionMapper.selectHotExhibitions();
         log.info("热门展览查询完毕，共 {} 条", hotExhibitions.size());
 

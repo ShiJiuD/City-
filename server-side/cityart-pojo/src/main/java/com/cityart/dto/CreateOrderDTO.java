@@ -36,7 +36,7 @@ public class CreateOrderDTO {
         @NotNull(message = "展览ID不能为空")
         private Long exhibitionId;
 
-        /** 票种名称（如"成人票"、"学生票"） */
+        /** 票种名称：成人票/学生票/儿童票（仅作订单快照标签，不影响价格） */
         @NotBlank(message = "票种不能为空")
         private String ticketType;
 
@@ -45,7 +45,7 @@ public class CreateOrderDTO {
         @Min(value = 1, message = "数量至少为1")
         private Integer quantity;
 
-        /** 观展日期/场次时间（格式: yyyy-MM-dd HH:mm:ss） */
+        /** 观展日期/场次时间（yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，只传日期则视为当天 00:00:00） */
         @NotBlank(message = "观展日期不能为空")
         private String visitDate;
     }

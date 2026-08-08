@@ -5,9 +5,10 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.io.Serializable;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -89,13 +90,7 @@ public class Exhibition implements Serializable {
     private Integer sortOrder;
 
     /**
-     * 状态：0-未开始 1-进行中 2-已结束
-     */
-    @TableField("status")
-    private Integer status;
-
-    /**
-     * 展览类型（0/1/2... 数字表示）
+     * 展览类型：1-当代展览 2-古典展览 3-雕塑展览 4-摄影展览
      */
     @TableField("type")
     private Integer type;
@@ -111,6 +106,12 @@ public class Exhibition implements Serializable {
      */
     @TableField("sold_count")
     private Integer soldCount;
+
+    /**
+     * 票价（成人票票价，所有票种统一使用该价格）
+     */
+    @TableField("price")
+    private BigDecimal price;
 
     /**
      * 创建时间（INSERT 时自动填充）

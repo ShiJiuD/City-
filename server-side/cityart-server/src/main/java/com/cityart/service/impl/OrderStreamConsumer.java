@@ -9,6 +9,8 @@ import com.cityart.mapper.OrdersMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -24,6 +26,11 @@ import org.redisson.api.RedissonClient;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,6 +72,15 @@ public class OrderStreamConsumer {
     private final OrderItemMapper orderItemMapper;
     private final ExhibitionMapper exhibitionMapper;
     private final RedissonClient redissonClient;
+
+    /**
+     * 自引用代理：processOrder 由内部类 OrderHandler 直接调用时会绕过 Spring AOP，
+     * 导致 @Transactional 注解失效（事务不开启，部分写入无法回滚）。
+     * 通过注入自身代理再调用，保证事务生效。
+     */
+    @Lazy
+    @Autowired
+    private OrderStreamConsumer self;
 
     /** 单线程消费者执行器 */
     private static final ExecutorService CONSUMER_EXECUTOR = Executors.newSingleThreadExecutor();
@@ -136,7 +152,7 @@ public class OrderStreamConsumer {
                     Map<Object, Object> value = record.getValue();
                     log.info("收到 Stream 消息, id: {}, orderNo: {}", record.getId(), value.get("orderNo"));
 
-                    processOrder(value);
+                    self.processOrder(value);
 
                     // 4. XACK 确认
                     stringRedisTemplate.opsForStream().acknowledge(STREAM_KEY, GROUP_NAME, record.getId());
@@ -179,7 +195,7 @@ public class OrderStreamConsumer {
                     Map<Object, Object> value = record.getValue();
                     log.info("处理 pending 消息, id: {}", record.getId());
 
-                    processOrder(value);
+                    self.processOrder(value);
 
                     // 4. XACK 确认
                     stringRedisTemplate.opsForStream().acknowledge(STREAM_KEY, GROUP_NAME, record.getId());
@@ -194,6 +210,32 @@ public class OrderStreamConsumer {
                     }
                 }
             }
+        }
+    }
+
+    // ==================== 私有工具方法 ====================
+
+    /**
+     * 解析 Stream 消息中的观展日期，兼容三种形式：
+     * <ol>
+     *   <li>字符串 ISO 格式（如 2026-07-01T00:00:00）</li>
+     *   <li>字符串自定义格式（如 2026-07-01 00:00:00）</li>
+     *   <li>数字：epoch 毫秒时间戳（hutool JSONUtil 序列化 LocalDateTime 的产物）</li>
+     * </ol>
+     *
+     * @param visitDate 消息中的 visitDate 字段值
+     * @return LocalDateTime
+     */
+    private LocalDateTime parseVisitDate(Object visitDate) {
+        if (visitDate instanceof Number) {
+            long epochMilli = ((Number) visitDate).longValue();
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMilli), ZoneId.systemDefault());
+        }
+        String str = String.valueOf(visitDate);
+        try {
+            return LocalDateTime.parse(str);    // ISO 格式
+        } catch (DateTimeParseException e) {
+            return LocalDateTime.parse(str, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         }
     }
 
@@ -245,12 +287,13 @@ public class OrderStreamConsumer {
         try {
             log.info("开始落库, orderNo: {}, items: {}", orderNo, itemMaps.size());
 
-            // === 5. INSERT orders（status = 0 待支付） ===
+            // === 5. INSERT orders（下单即已支付，无真实支付网关） ===
             Orders order = new Orders();
             order.setOrderNo(orderNo);
             order.setUserId(userId);
             order.setTotalAmount(totalAmount);
-            order.setStatus(0); // 待支付
+            order.setStatus(1); // 已支付
+            order.setPayTime(LocalDateTime.now()); // payTime = 订单真正创建的时间
             ordersMapper.insert(order);
 
             // === 6. 批量 INSERT order_item ===
@@ -261,7 +304,7 @@ public class OrderStreamConsumer {
                 item.setTicketType(String.valueOf(itemMap.get("ticketType")));
                 item.setQuantity(Integer.valueOf(String.valueOf(itemMap.get("quantity"))));
                 item.setUnitPrice(new BigDecimal(String.valueOf(itemMap.get("unitPrice"))));
-                item.setVisitDate(java.time.LocalDateTime.parse(String.valueOf(itemMap.get("visitDate"))));
+                item.setVisitDate(parseVisitDate(itemMap.get("visitDate")));
                 orderItemMapper.insert(item);
             }
 

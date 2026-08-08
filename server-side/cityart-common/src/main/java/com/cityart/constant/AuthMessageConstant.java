@@ -116,6 +116,10 @@ public class AuthMessageConstant {
     public static final String ORDER_STOCK_INSUFFICIENT = "展览库存不足，剩余票数已不够";
     /** 展览不存在或未配置库存 */
     public static final String ORDER_EXHIBITION_NO_STOCK = "展览不存在或未配置库存";
+    /** 展览不存在或未设置票价 */
+    public static final String ORDER_EXHIBITION_NO_PRICE = "该展览暂未设置票价";
+    /** 观展日期格式不正确 */
+    public static final String ORDER_VISIT_DATE_INVALID = "观展日期格式不正确，请使用 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss";
     /** 不支持的票种 */
     public static final String ORDER_TICKET_TYPE_UNSUPPORTED = "不支持的票种";
     /** 下单成功 */

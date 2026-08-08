@@ -8,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 @Slf4j
@@ -37,7 +38,18 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 3. 兜底：捕获所有其他未知系统异常
+     * 3. 捕获静态资源/路径不存在（如浏览器自动请求的 /favicon.ico）
+     * <p>
+     * 属正常现象，不打 ERROR 堆栈，降级为 WARN。
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result noResourceFoundHandler(NoResourceFoundException ex) {
+        log.warn("资源不存在: {}", ex.getResourcePath());
+        return Result.error("资源不存在");
+    }
+
+    /**
+     * 4. 兜底：捕获所有其他未知系统异常
      */
     @ExceptionHandler(Exception.class)
     public Result allExceptionHandler(Exception ex) {

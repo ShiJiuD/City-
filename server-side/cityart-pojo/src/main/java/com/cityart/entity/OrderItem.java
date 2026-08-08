@@ -40,7 +40,7 @@ public class OrderItem implements Serializable {
     @TableField("exhibition_id")
     private Long exhibitionId;
 
-    /** 票种名称（如"成人票"、"学生票"），作为订单快照固化 */
+    /** 票种名称：成人票/学生票/儿童票，作为订单快照固化（不参与定价） */
     @TableField("ticket_type")
     private String ticketType;
 

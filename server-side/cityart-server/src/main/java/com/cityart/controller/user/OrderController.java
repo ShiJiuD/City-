@@ -6,6 +6,7 @@ import com.cityart.context.UserContext;
 import com.cityart.dto.CreateOrderDTO;
 import com.cityart.result.Result;
 import com.cityart.service.OrderService;
+import com.cityart.vo.CreateOrderVO;
 import com.cityart.vo.OrderPageVO;
 import com.cityart.vo.OrderVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -80,10 +81,10 @@ public class OrderController {
      */
     @Operation(summary = "创建订单")
     @PostMapping("/orders")
-    public Result<OrderVO> create(@RequestBody @Validated CreateOrderDTO dto) {
+    public Result<CreateOrderVO> create(@RequestBody @Validated CreateOrderDTO dto) {
         Long userId = UserContext.getUserId();
         log.info("创建订单请求, userId: {}, items: {}", userId, dto.getItems().size());
-        OrderVO vo = orderService.createOrder(userId, dto);
+        CreateOrderVO vo = orderService.createOrder(userId, dto);
         return Result.success(vo, AuthMessageConstant.ORDER_CREATE_SUCCESS);
     }
 

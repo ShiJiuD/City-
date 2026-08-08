@@ -21,7 +21,7 @@ public class RedisConstant {
     // ====================== 秒杀 / 票务缓存 ======================
     /** 展览库存（票数） */
     public static final String KEY_EXHIBITION_STOCK = "exhibition:stock:";
-    /** 展览票价缓存（Hash: field=票种名, value=价格） */
+    /** 展览票价缓存（String: value=统一票价，不区分票种） */
     public static final String KEY_EXHIBITION_PRICE = "exhibition:price:";
 
     // ====================== 过期时间 单位：毫秒 ======================

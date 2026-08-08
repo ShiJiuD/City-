@@ -1,6 +1,7 @@
 package com.cityart.service;
 
 import com.cityart.dto.CreateOrderDTO;
+import com.cityart.vo.CreateOrderVO;
 import com.cityart.vo.OrderPageVO;
 import com.cityart.vo.OrderVO;
 
@@ -39,9 +40,9 @@ public interface OrderService {
      *
      * @param userId 当前登录用户 ID
      * @param dto    下单请求
-     * @return 订单简要信息（订单号、状态、金额、明细）
+     * @return 订单简要信息（订单号、状态、金额、明细，不含支付/取消/退款时间）
      */
-    OrderVO createOrder(Long userId, CreateOrderDTO dto);
+    CreateOrderVO createOrder(Long userId, CreateOrderDTO dto);
 
     /**
      * 取消订单（仅待支付可取消）
