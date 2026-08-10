@@ -129,4 +129,19 @@ public class AuthMessageConstant {
     /** 退款申请已提交 */
     public static final String ORDER_REFUND_SUCCESS = "退款申请已提交";
 
+    // ==================== 收藏模块 ====================
+
+    /** 收藏成功 */
+    public static final String FAVORITE_ADD_SUCCESS = "收藏成功";
+    /** 取消收藏成功 */
+    public static final String FAVORITE_CANCEL_SUCCESS = "取消收藏成功";
+    /** 已收藏（重复收藏幂等提示，不报错） */
+    public static final String FAVORITE_ALREADY = "已收藏";
+    /** 未收藏（重复取消幂等提示，不报错） */
+    public static final String FAVORITE_NOT_EXIST = "未收藏";
+    /** 收藏目标不存在（展览/美术馆记录不存在） */
+    public static final String FAVORITE_TARGET_NOT_EXIST = "收藏目标不存在";
+    /** 收藏类型不合法（仅允许 1-展览 2-美术馆） */
+    public static final String FAVORITE_TYPE_INVALID = "收藏类型不合法";
+
 }
