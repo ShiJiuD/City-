@@ -24,6 +24,18 @@ public class RedisConstant {
     /** 展览票价缓存（String: value=统一票价，不区分票种） */
     public static final String KEY_EXHIBITION_PRICE = "exhibition:price:";
 
+    // ====================== 查询缓存（Cache Aside 模式） ======================
+    /** 首页聚合数据缓存前缀（key = home:{city|all}） */
+    public static final String KEY_HOME_CACHE = "home:";
+    /** 展馆详情缓存前缀（key = detail:gallery:{id}） */
+    public static final String KEY_DETAIL_GALLERY = "detail:gallery:";
+    /** 展览详情缓存前缀（key = detail:exhibition:{id}） */
+    public static final String KEY_DETAIL_EXHIBITION = "detail:exhibition:";
+    /** 详情缓存重建互斥锁前缀（key = lock:detail:{type}:{id}） */
+    public static final String KEY_LOCK_DETAIL = "lock:detail:";
+    /** 首页缓存重建互斥锁前缀（key = lock:home:{city|all}） */
+    public static final String KEY_LOCK_HOME = "lock:home:";
+
     // ====================== 过期时间 单位：毫秒 ======================
     /** 验证码有效期 5分钟 */
     public static final long CODE_TTL = 5 * 60 * 1000L;
@@ -31,6 +43,18 @@ public class RedisConstant {
     public static final long LOCK_WAIT_TTL = 10 * 1000L;
     /** 分布式锁持有过期时间 30秒 */
     public static final long LOCK_HOLD_TTL = 30 * 1000L;
+    /** 首页聚合缓存 TTL 10分钟 */
+    public static final long HOME_CACHE_TTL = 10 * 60 * 1000L;
+    /** 详情缓存 TTL 30分钟 */
+    public static final long DETAIL_CACHE_TTL = 30 * 60 * 1000L;
+    /** 空值缓存 TTL 3分钟（防缓存穿透，短 TTL 降低长期不一致） */
+    public static final long EMPTY_CACHE_TTL = 3 * 60 * 1000L;
+    /** 缓存重建互斥锁 TTL 10秒（持锁方崩溃时自动释放） */
+    public static final long DETAIL_LOCK_TTL = 10 * 1000L;
+    /** 票价缓存 TTL 10分钟（兜底自愈；管理端改价时需先更库再删缓存） */
+    public static final long PRICE_TTL = 10 * 60 * 1000L;
+    /** 缓存 TTL 随机抖动上限 5分钟（防缓存雪崩，避免大量 key 同时失效） */
+    public static final long TTL_JITTER_RANGE = 5 * 60 * 1000L;
 
     // ====================== Redis操作提示文案 ======================
     // JWT黑名单

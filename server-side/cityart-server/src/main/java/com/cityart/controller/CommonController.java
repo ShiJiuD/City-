@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cityart.constant.AuthMessageConstant;
 import com.cityart.constant.MessageConstant;
+import com.cityart.constant.RedisConstant;
 import com.cityart.dto.ResetPasswordDTO;
 import com.cityart.dto.SendCodeDTO;
 import com.cityart.dto.VerifyCodeDTO;
@@ -18,8 +19,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.mindrot.jbcrypt.BCrypt;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.concurrent.TimeUnit;
 
 @Tag(name = "忘记密码")
 @RestController
@@ -30,6 +34,7 @@ public class CommonController {
 
     private final UserService userService;
     private final AdminUserService adminUserService;
+    private final StringRedisTemplate stringRedisTemplate;
 
     /**
      * 测试环境验证码常量
@@ -58,6 +63,13 @@ public class CommonController {
         // 2. 校验手机号在对应表中存在（验证码场景用"当前账号不存在"）
         checkPhoneExists(dto.getPhone(), dto.getRole());
 
+        // 3. 校验通过 → 写入 Redis 一次性凭证（5 分钟有效），
+        //    reset-password 必须持有该凭证才能改密，防止绕过验证码直接重置
+        stringRedisTemplate.opsForValue().set(
+                RedisConstant.KEY_VERIFY_CODE + dto.getPhone(), "1",
+                RedisConstant.CODE_TTL, TimeUnit.MILLISECONDS);
+        log.info("验证码校验通过，已写入重置凭证, phone={}", dto.getPhone());
+
         return Result.success(null, AuthMessageConstant.VERIFY_SUCCESS);
     }
 
@@ -65,6 +77,13 @@ public class CommonController {
     @PutMapping("/reset-password")
     public Result<Void> resetPassword(@RequestBody @Validated ResetPasswordDTO dto) {
         log.info("重置密码请求: phone={}, role={}", dto.getPhone(), dto.getRole());
+
+        // 0. 校验验证码凭证：必须先通过 /api/verify-code 且 5 分钟内有效，
+        //    否则任何人知道手机号即可绕过验证码直接改密（接管账号）
+        String verified = stringRedisTemplate.opsForValue().get(RedisConstant.KEY_VERIFY_CODE + dto.getPhone());
+        if (verified == null) {
+            throw new AuthException(AuthMessageConstant.VERIFY_CODE_REQUIRED);
+        }
 
         // 1. 再次校验手机号在对应表中存在
         checkPhoneExists(dto.getPhone(), dto.getRole());
@@ -86,6 +105,9 @@ public class CommonController {
             adminUser.setPassword(encodedPassword);
             adminUserService.updateById(adminUser);
         }
+
+        // 4. 凭证一次性：改密成功后立即删除，防止凭证复用
+        stringRedisTemplate.delete(RedisConstant.KEY_VERIFY_CODE + dto.getPhone());
 
         return Result.success(null, AuthMessageConstant.PASSWORD_RESET_SUCCESS);
     }

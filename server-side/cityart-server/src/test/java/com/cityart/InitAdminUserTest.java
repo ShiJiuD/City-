@@ -10,7 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.time.LocalDateTime;
 
 /**
- * 初始化数据测试 —— 往 admin_user 表插入第一条管理员记录
+ * 初始化数据测试 —— 往 admin 表插入第一条管理员记录
  */
 @SpringBootTest
 class InitAdminUserTest {

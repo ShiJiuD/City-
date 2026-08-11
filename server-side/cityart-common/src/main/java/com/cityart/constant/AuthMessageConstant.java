@@ -81,6 +81,11 @@ public class AuthMessageConstant {
     public static final String PASSWORD_RESET_SUCCESS = "密码修改成功";
 
     /**
+     * 重置密码前必须先通过验证码校验（凭证不存在或已过期）
+     */
+    public static final String VERIFY_CODE_REQUIRED = "请先完成验证码校验";
+
+    /**
      * 昵称不能为空
      */
     public static final String NICKNAME_EMPTY = "昵称不能为空";

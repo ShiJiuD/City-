@@ -33,6 +33,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -242,8 +243,7 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
 
             // 记录已扣减 key + 扣减量（失败时需精确回滚）
             decrKeys.merge(stockKey, quantity, Integer::sum);
-            itemQuantityMap.put(exhibitionId,
-                    itemQuantityMap.getOrDefault(exhibitionId, 0) + quantity);
+            itemQuantityMap.merge(exhibitionId, quantity, Integer::sum);
 
             // 累加金额
             totalAmount = totalAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
@@ -400,12 +400,13 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
             return new BigDecimal(cached);
         }
 
-        // ② Redis miss → 查 exhibition.price → 回写缓存
+        // ② Redis miss → 查 exhibition.price → 回写缓存（带 TTL，改价后最多 10 分钟自愈）
         Exhibition exhibition = exhibitionMapper.selectById(exhibitionId);
         if (exhibition == null || exhibition.getPrice() == null) {
             throw new AuthException(AuthMessageConstant.ORDER_EXHIBITION_NO_PRICE);
         }
-        stringRedisTemplate.opsForValue().set(priceKey, exhibition.getPrice().toString());
+        stringRedisTemplate.opsForValue().set(priceKey, exhibition.getPrice().toString(),
+                RedisConstant.PRICE_TTL, TimeUnit.MILLISECONDS);
         log.info("票价缓存回填, key: {}, value: {}", priceKey, exhibition.getPrice());
         return exhibition.getPrice();
     }
