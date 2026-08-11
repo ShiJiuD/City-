@@ -144,4 +144,11 @@ public class AuthMessageConstant {
     /** 收藏类型不合法（仅允许 1-展览 2-美术馆） */
     public static final String FAVORITE_TYPE_INVALID = "收藏类型不合法";
 
+    // ==================== 详情模块 ====================
+
+    /** 展馆不存在 */
+    public static final String GALLERY_NOT_EXIST = "展馆不存在";
+    /** 展览不存在 */
+    public static final String EXHIBITION_NOT_EXIST = "展览不存在";
+
 }
