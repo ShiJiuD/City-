@@ -10,6 +10,16 @@ const ForgotPasswordView = () => import('../views/ForgotPasswordView.vue')
 const ExhibitionsView = () => import('../views/ExhibitionsView.vue')
 const GalleriesView = () => import('../views/GalleriesView.vue')
 const SelectCityView = () => import('../views/SelectCityView.vue')
+const HotGalleriesView = () => import('../views/HotGalleriesView.vue')
+const ExhibitionListView = () => import('../views/ExhibitionListView.vue')
+const ProfileView = () => import('../views/ProfileView.vue')
+const EditProfileView = () => import('../views/EditProfileView.vue')
+const ProfileSubPage = () => import('../views/ProfileSubPage.vue')
+const FavoritesView = () => import('../views/FavoritesView.vue')
+const MyOrdersView = () => import('../views/MyOrdersView.vue')
+const GalleryDetailView = () => import('../views/GalleryDetailView.vue')
+const ExhibitionDetailView = () => import('../views/ExhibitionDetailView.vue')
+const OrderCreateView = () => import('../views/OrderCreateView.vue')
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -46,15 +56,75 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/exhibitions/:category',
+      name: 'exhibitionList',
+      component: ExhibitionListView,
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/galleries',
       name: 'galleries',
       component: GalleriesView,
       meta: { requiresAuth: true },
     },
     {
+      path: '/order/create/:exhibitionId',
+      name: 'orderCreate',
+      component: OrderCreateView,
+      meta: { requiresAuth: true, hideNav: true },
+    },
+    {
+      path: '/exhibition/:id',
+      name: 'exhibitionDetail',
+      component: ExhibitionDetailView,
+      meta: { requiresAuth: true, hideNav: true },
+    },
+    {
+      path: '/gallery/:id',
+      name: 'galleryDetail',
+      component: GalleryDetailView,
+      meta: { requiresAuth: true, hideNav: true },
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: ProfileView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/profile/edit',
+      name: 'editProfile',
+      component: EditProfileView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/profile/orders',
+      name: 'myOrders',
+      component: MyOrdersView,
+      meta: { requiresAuth: true, hideNav: true },
+    },
+    {
+      path: '/profile/favorites',
+      name: 'favorites',
+      component: FavoritesView,
+      meta: { requiresAuth: true, hideNav: true },
+    },
+    {
+      path: '/profile/:page',
+      name: 'profileSub',
+      component: ProfileSubPage,
+      meta: { requiresAuth: true, hideNav: true },
+    },
+    {
       path: '/select-city',
       name: 'selectCity',
       component: SelectCityView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/hot-galleries',
+      name: 'hotGalleries',
+      component: HotGalleriesView,
       meta: { requiresAuth: true },
     },
   ],
