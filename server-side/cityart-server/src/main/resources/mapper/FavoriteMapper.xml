@@ -26,6 +26,19 @@
         ORDER BY f.create_time DESC
     </select>
 
+    <!-- 用户收藏的展览画像（联表取展览类型/美术馆类型，07 文档 7.1） -->
+    <select id="selectUserFavoriteTypes" resultType="com.cityart.vo.UserFavoriteTypeVO">
+        SELECT
+            f.target_id AS favExhibitionId,
+            e.type AS exhibitionType,
+            g.type AS galleryType
+        FROM favorite f
+        INNER JOIN exhibition e ON f.target_id = e.id
+        LEFT JOIN gallery g ON e.gallery_id = g.id
+        WHERE f.user_id = #{userId}
+          AND f.target_type = 1
+    </select>
+
     <!-- 美术馆收藏分页（联表 gallery 补名称/封面/地址/在展数量） -->
     <select id="selectFavoriteGalleryPage" resultType="com.cityart.vo.FavoriteListVO">
         SELECT

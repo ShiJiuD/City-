@@ -18,6 +18,39 @@
         ORDER BY e.sort_order DESC
     </select>
 
+    <!-- 推荐候选池（营业美术馆下、未结束的展览，07 文档 7.2） -->
+    <select id="selectRecommendCandidates" resultType="com.cityart.vo.RecommendCandidateVO">
+        SELECT
+            e.id AS exhibitionId,
+            e.gallery_id AS galleryId,
+            e.type AS exhibitionType,
+            g.type AS galleryType,
+            e.is_hot AS isHot,
+            g.name AS galleryName,
+            CASE WHEN e.start_date &gt; CURDATE() THEN 0 ELSE 1 END AS status
+        FROM exhibition e
+        INNER JOIN gallery g ON e.gallery_id = g.id
+        WHERE g.status = 0
+          AND e.end_date &gt;= CURDATE()
+    </select>
+
+    <!-- 热门展览兜底（is_hot=1 且当前在展期内，额外取 COALESCE(price,0)） -->
+    <select id="selectHotRecommendExhibitions" resultType="com.cityart.vo.RecommendExhibitionVO">
+        SELECT
+            e.id,
+            e.poster_image AS posterImage,
+            e.title,
+            e.subtitle,
+            g.name AS galleryName,
+            e.type,
+            COALESCE(e.price, 0) AS price
+        FROM exhibition e
+        LEFT JOIN gallery g ON e.gallery_id = g.id
+        WHERE e.is_hot = 1
+          AND e.start_date &lt;= CURDATE() AND e.end_date &gt;= CURDATE()
+        ORDER BY e.sort_order DESC
+    </select>
+
     <!-- 按时间段查询展览列表（纯日期判断，不依赖 status） -->
     <select id="selectExhibitionList" resultType="com.cityart.vo.ExhibitionListVO">
         SELECT

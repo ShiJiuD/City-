@@ -46,3 +46,8 @@ cityart:
     access-key-id: <你的阿里云AccessKey ID>
     access-key-secret: <你的阿里云AccessKey Secret>
     bucket-name: cityart-gz
+
+  # ===== 艺览智荐推荐模块（Java → Python 算法服务）=====
+  recommend:
+    python-url: http://localhost:8000/api/recommend
+    timeout: 3000

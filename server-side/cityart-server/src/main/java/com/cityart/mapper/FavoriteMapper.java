@@ -4,7 +4,10 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cityart.entity.Favorite;
 import com.cityart.vo.FavoriteListVO;
+import com.cityart.vo.UserFavoriteTypeVO;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -24,6 +27,13 @@ public interface FavoriteMapper extends BaseMapper<Favorite> {
     Page<FavoriteListVO> selectFavoriteExhibitionPage(Page<?> page,
                                                       @Param("userId") Long userId,
                                                       @Param("keyword") String keyword);
+
+    /**
+     * 查询用户收藏的展览画像（联表 exhibition + gallery 取展览类型/美术馆类型，07 文档 7.1）
+     * <p>
+     * 仅取 target_type=1（展览）的收藏，一次查出三列，Service 内部分别去重组装画像。
+     */
+    List<UserFavoriteTypeVO> selectUserFavoriteTypes(@Param("userId") Long userId);
 
     /**
      * 美术馆收藏分页查询（联表 gallery 补名称/封面/地址/在展数量）

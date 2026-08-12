@@ -156,4 +156,9 @@ public class AuthMessageConstant {
     /** 展览不存在 */
     public static final String EXHIBITION_NOT_EXIST = "展览不存在";
 
+    // ==================== 推荐模块 ====================
+
+    /** 获取推荐成功 */
+    public static final String RECOMMEND_SUCCESS = "获取推荐成功";
+
 }
