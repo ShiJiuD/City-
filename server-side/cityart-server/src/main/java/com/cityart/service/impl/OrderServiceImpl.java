@@ -384,12 +384,14 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
      * 查票价：Redis 缓存优先 → miss 时查 exhibition.price 并回写（统一票价）
      * <p>
      * 无论前端传什么票种，都取该展览的 price（成人票票价），缓存为 String 一展一价。<br>
-     * ticketType 参数仅保留用于兼容票种维度（订单明细仍记录票种快照），不参与定价。
+     * ticketType 参数仅保留用于兼容票种维度（订单明细仍记录票种快照），不参与定价。<br>
+     * <b>price 为 NULL 是合法的免费展</b>（全项目接口约定 COALESCE(price,0) 显示为 0），
+     * 按 0 元处理可正常下单（相当于免费预约凭证），只有展览不存在才视为配置错误。
      *
      * @param exhibitionId 展览 ID
      * @param ticketType   票种名称（如"成人票"，仅记录展示，不影响价格）
-     * @return 票价
-     * @throws AuthException 展览不存在或未设置票价
+     * @return 票价（免费展返回 0）
+     * @throws AuthException 展览不存在
      */
     private BigDecimal getExhibitionPrice(Long exhibitionId, String ticketType) {
         String priceKey = RedisConstant.KEY_EXHIBITION_PRICE + exhibitionId;
@@ -402,13 +404,15 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
 
         // ② Redis miss → 查 exhibition.price → 回写缓存（带 TTL，改价后最多 10 分钟自愈）
         Exhibition exhibition = exhibitionMapper.selectById(exhibitionId);
-        if (exhibition == null || exhibition.getPrice() == null) {
+        if (exhibition == null) {
             throw new AuthException(AuthMessageConstant.ORDER_EXHIBITION_NO_PRICE);
         }
-        stringRedisTemplate.opsForValue().set(priceKey, exhibition.getPrice().toString(),
+        // 免费展（price NULL）按 0 元处理，可正常下单
+        BigDecimal price = exhibition.getPrice() == null ? BigDecimal.ZERO : exhibition.getPrice();
+        stringRedisTemplate.opsForValue().set(priceKey, price.toString(),
                 RedisConstant.PRICE_TTL, TimeUnit.MILLISECONDS);
-        log.info("票价缓存回填, key: {}, value: {}", priceKey, exhibition.getPrice());
-        return exhibition.getPrice();
+        log.info("票价缓存回填, key: {}, value: {}", priceKey, price);
+        return price;
     }
 
     /**
