@@ -259,6 +259,10 @@ function goToGalleries() {
   router.push('/galleries')
 }
 
+function goToHotGalleries() {
+  router.push('/hot-galleries')
+}
+
 // ===== 重试 =====
 function retry() {
   fetchHomeData()
@@ -392,7 +396,7 @@ onUnmounted(() => {
               <div class="gallery-line"></div>
               <span class="gallery-sub">GALLERY</span>
             </div>
-            <button class="gallery-more" @click="goToGalleries">查看更多 &gt;</button>
+            <button class="gallery-more" @click="goToHotGalleries">查看更多 &gt;</button>
           </div>
           <div class="gallery-grid">
             <div
@@ -409,7 +413,7 @@ onUnmounted(() => {
                 <h4 class="gallery-name">{{ g.name }}</h4>
                 <p class="gallery-address">{{ g.address }}</p>
                 <p class="gallery-count">{{ g.count }} 场展览</p>
-                <button class="gallery-detail" @click="goToGallery(g.id)">查看详情</button>
+                <button class="gallery-detail" @click.stop="router.push('/gallery/' + g.id)">查看详情</button>
               </div>
             </div>
           </div>

@@ -10,3 +10,8 @@ export function getUserProfile(): Promise<ApiResponse<UserProfile>> {
 export function getAdminProfile(): Promise<ApiResponse<AdminProfile>> {
   return request.get('/api/admin/profile').then(res => res.data)
 }
+
+/** 修改C端用户昵称 */
+export function updateProfile(nickname: string): Promise<ApiResponse<null>> {
+  return request.put('/api/app/profile', { nickname }).then(res => res.data)
+}

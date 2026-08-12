@@ -37,7 +37,12 @@ function handleCitySelect() {
 
 /** 个人中心 */
 function handleProfile() {
-  // TODO: 跳转个人中心页
+  router.push('/profile')
+}
+
+/** 是否在个人中心页 */
+function isProfileActive(): boolean {
+  return route.path.startsWith('/profile')
 }
 
 /** 退出登录 */
@@ -76,7 +81,11 @@ function handleLogout() {
 
         <!-- 个人中心 / 登录注册 -->
         <template v-if="auth.isLoggedIn">
-          <button class="action-btn" @click="handleProfile">
+          <button
+            class="action-btn"
+            :class="{ 'profile-active': isProfileActive() }"
+            @click="handleProfile"
+          >
             <img :src="personIcon" alt="个人" class="action-icon" />
             <span>个人中心</span>
           </button>
@@ -212,6 +221,10 @@ function handleLogout() {
 .action-btn:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
+}
+
+.action-btn.profile-active {
+  color: rgba(233, 184, 106, 1);
 }
 
 .action-icon {
