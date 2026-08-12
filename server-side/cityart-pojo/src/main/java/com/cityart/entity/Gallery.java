@@ -82,7 +82,7 @@ public class Gallery implements Serializable {
     private Integer status;
 
     /**
-     * 美术馆类型（0/1/2... 数字表示）
+     * 美术馆类型：1-综合美术馆 2-当代美术馆 3-古典美术馆 4-雕塑美术馆 5-摄影美术馆
      */
     @TableField("type")
     private Integer type;

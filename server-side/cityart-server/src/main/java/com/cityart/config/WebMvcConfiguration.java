@@ -57,13 +57,18 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
                 .excludePathPatterns("/api/app/login",
                         "/api/app/register",
                         "/api/app/home",
+                        "/api/app/recommend",
                         "/api/app/galleries",
+                        "/api/app/galleries/page",
+                        "/api/app/exhibitions/current",
+                        "/api/app/exhibitions/future",
+                        "/api/app/exhibitions/past",
                         "/api/admin/login",
                         "/api/admin/register",
                         "/api/send-code",
                         "/api/verify-code",
                         "/api/reset-password"
-                );   // 登录接口 + 首页展览浏览接口放行
+                );   // 登录接口 + 首页展览浏览接口放行（recommend 游客可访问，未登录走热门降级）
     }
 
 

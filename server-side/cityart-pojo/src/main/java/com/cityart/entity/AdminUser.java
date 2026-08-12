@@ -13,16 +13,16 @@ import lombok.experimental.Accessors;
 
 /**
  * <p>
- * B端美术馆管理员表
+ * B端美术馆管理员表（表名 admin，与数据库建表文档及 seed 脚本一致）
  * </p>
  *
- * @author 
+ * @author
  * @since 2026-07-24
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("admin_user")
+@TableName("admin")
 public class AdminUser implements Serializable {
 
     private static final long serialVersionUID = 1L;
