@@ -12,6 +12,7 @@ public class MessageConstant {
     public static final String QUERY_SUCCESS = "查询成功";
     public static final String QUERY_FAIL = "查询失败";
     public static final String SYSTEM_ERROR = "系统异常";
+    public static final String PARAM_ERROR = "参数类型错误";
 
     public static final String USER_ROLE = "user";
     public static final String ADMIN_ROLE = "admin";

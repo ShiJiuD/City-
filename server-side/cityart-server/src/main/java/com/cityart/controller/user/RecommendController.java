@@ -42,32 +42,17 @@ public class RecommendController {
     /**
      * 获取个性化推荐展览列表（07 文档第五章）
      *
-     * @param limit      返回推荐数量上限，默认 4
+     * @param limit      返回推荐数量上限，默认 4；非法类型由 GlobalExceptionHandler 统一兜底
      * @param authHeader 可选 Authorization 头；拦截器不处理此路径，需手动解析 token
      */
     @Operation(summary = "获取个性化推荐展览列表")
     @GetMapping("/recommend")
     public Result<List<RecommendExhibitionVO>> recommend(
-            @RequestParam(required = false) String limit,
+            @RequestParam(required = false) Integer limit,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Long userId = resolveUserId(authHeader);
-        List<RecommendExhibitionVO> list = recommendService.getRecommendations(userId, parseLimit(limit));
+        List<RecommendExhibitionVO> list = recommendService.getRecommendations(userId, limit);
         return Result.success(list, AuthMessageConstant.RECOMMEND_SUCCESS);
-    }
-
-    /**
-     * limit 解析：null/空/非数字返回 null，由 service 兜底为默认 4（公开接口，非法入参不得抛 500）
-     */
-    private Integer parseLimit(String limit) {
-        if (limit == null || limit.isBlank()) {
-            return null;
-        }
-        try {
-            return Integer.valueOf(limit);
-        } catch (NumberFormatException e) {
-            log.warn("推荐接口 limit 参数非法: {}, 按默认值处理", limit);
-            return null;
-        }
     }
 
     /**

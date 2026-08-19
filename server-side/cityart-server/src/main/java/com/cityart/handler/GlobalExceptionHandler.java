@@ -8,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -49,7 +50,19 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 4. 兜底：捕获所有其他未知系统异常
+     * 4. 捕获参数类型转换失败（如 /api/detail/abc、?limit=abc）
+     * <p>
+     * 属入参问题，不打 ERROR 堆栈，降级为 WARN，返回参数错误提示。
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public Result methodArgumentTypeMismatchHandler(MethodArgumentTypeMismatchException ex) {
+        log.warn("参数类型错误: 参数 {} 期望类型 {}, 实际值 {}", ex.getName(),
+                ex.getRequiredType() == null ? "?" : ex.getRequiredType().getSimpleName(), ex.getValue());
+        return Result.error(MessageConstant.PARAM_ERROR);
+    }
+
+    /**
+     * 5. 兜底：捕获所有其他未知系统异常
      */
     @ExceptionHandler(Exception.class)
     public Result allExceptionHandler(Exception ex) {
