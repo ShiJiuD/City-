@@ -109,6 +109,17 @@ export interface HomeData {
   galleries: Gallery[]
 }
 
+/** 首页“艺览智荐”推荐展览 */
+export interface RecommendExhibition {
+  id: number
+  posterImage: string
+  title: string
+  subtitle: string | null
+  galleryName: string
+  type: number
+  price: number
+}
+
 /** 美术馆列表查询参数 */
 export interface GalleryQuery {
   city?: string
