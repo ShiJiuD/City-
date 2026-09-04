@@ -81,7 +81,9 @@ public class GalleryServiceImpl extends ServiceImpl<GalleryMapper, Gallery> impl
 
         wrapper.orderByDesc(Gallery::getExhibitionCount);
 
-        Page<Gallery> pageResult = baseMapper.selectPage(Page.of(pageNum, pageSize), wrapper);
+        // 两种实现方法
+//        Page<Gallery> pageResult = baseMapper.selectPage(Page.of(pageNum, pageSize), wrapper);
+        Page<Gallery> pageResult = page(Page.of(pageNum, pageSize), wrapper);
         List<GalleryVO> records = pageResult.getRecords().stream()
                 .map(g -> BeanUtil.copyProperties(g, GalleryVO.class))
                 .collect(Collectors.toList());

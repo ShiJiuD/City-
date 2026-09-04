@@ -215,47 +215,47 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
         // ===== 阶段一：Redis 库存预检 + 原子扣减 =====
         try {
             for (CreateOrderDTO.OrderItem itemDto : dto.getItems()) {
-            Long exhibitionId = itemDto.getExhibitionId();
-            int quantity = itemDto.getQuantity();  // 购买量
+                Long exhibitionId = itemDto.getExhibitionId();
+                int quantity = itemDto.getQuantity();  // 购买量
 
-            // ① 查票价：Redis 缓存优先，统一使用 exhibition.price（不区分票种）
-            BigDecimal unitPrice = getExhibitionPrice(exhibitionId, itemDto.getTicketType());
+                // ① 查票价：Redis 缓存优先，统一使用 exhibition.price（不区分票种）
+                BigDecimal unitPrice = getExhibitionPrice(exhibitionId, itemDto.getTicketType());
 
-            // ② Lua 原子操作：GET + 判 + DECRBY（一次 Redis 往返）
-            String stockKey = RedisConstant.KEY_EXHIBITION_STOCK + exhibitionId;
-            Long result = stringRedisTemplate.execute(SECKILL_SCRIPT,
-                    List.of(stockKey), String.valueOf(quantity));
-
-            // key 不存在 → 库存未预热，从 DB 加载后重试
-            if (result == null || result == -1) {
-                log.info("Redis 库存未预热, exhibitionId: {}, 从 DB 加载", exhibitionId);
-                preloadStock(exhibitionId);
-                result = stringRedisTemplate.execute(SECKILL_SCRIPT,
+                // ② Lua 原子操作：GET + 判 + DECRBY（一次 Redis 往返）
+                String stockKey = RedisConstant.KEY_EXHIBITION_STOCK + exhibitionId;
+                Long result = stringRedisTemplate.execute(SECKILL_SCRIPT,
                         List.of(stockKey), String.valueOf(quantity));
-            }
 
-            // 库存不足 → 回滚之前已扣减的 key，抛异常
-            if (result == null || result == 0) {
-                rollbackStock(decrKeys);
-                decrKeys.clear();   // 已回滚，防止外层 catch 重复回滚
-                throw new AuthException(AuthMessageConstant.ORDER_STOCK_INSUFFICIENT);
-            }
+                // key 不存在 → 库存未预热，从 DB 加载后重试
+                if (result == null || result == -1) {
+                    log.info("Redis 库存未预热, exhibitionId: {}, 从 DB 加载", exhibitionId);
+                    preloadStock(exhibitionId);
+                    result = stringRedisTemplate.execute(SECKILL_SCRIPT,
+                            List.of(stockKey), String.valueOf(quantity));
+                }
 
-            // 记录已扣减 key + 扣减量（失败时需精确回滚）
-            decrKeys.merge(stockKey, quantity, Integer::sum);
-            itemQuantityMap.merge(exhibitionId, quantity, Integer::sum);
+                // 库存不足 → 回滚之前已扣减的 key，抛异常
+                if (result == null || result == 0) {
+                    rollbackStock(decrKeys);
+                    decrKeys.clear();   // 已回滚，防止外层 catch 重复回滚
+                    throw new AuthException(AuthMessageConstant.ORDER_STOCK_INSUFFICIENT);
+                }
 
-            // 累加金额
-            totalAmount = totalAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
+                // 记录已扣减 key + 扣减量（失败时需精确回滚）
+                decrKeys.merge(stockKey, quantity, Integer::sum);
+                itemQuantityMap.merge(exhibitionId, quantity, Integer::sum);
 
-            // 构造 OrderItem 明细对象（order_id 等异步落库时回填）
-            OrderItem item = new OrderItem();
-            item.setExhibitionId(exhibitionId);
-            item.setTicketType(itemDto.getTicketType());
-            item.setQuantity(quantity);
-            item.setUnitPrice(unitPrice);
-            item.setVisitDate(parseVisitDate(itemDto.getVisitDate()));
-            orderItems.add(item);
+                // 累加金额
+                totalAmount = totalAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
+
+                // 构造 OrderItem 明细对象（order_id 等异步落库时回填）
+                OrderItem item = new OrderItem();
+                item.setExhibitionId(exhibitionId);
+                item.setTicketType(itemDto.getTicketType());
+                item.setQuantity(quantity);
+                item.setUnitPrice(unitPrice);
+                item.setVisitDate(parseVisitDate(itemDto.getVisitDate()));
+                orderItems.add(item);
             }
         } catch (Exception e) {
             // 预检过程中任何异常（如日期格式错误）都回滚已扣库存，防止库存泄漏
@@ -272,6 +272,7 @@ public class OrderServiceImpl extends ServiceImpl<OrdersMapper, Orders> implemen
         msgData.put("orderNo", orderNo);
         msgData.put("userId", userId.toString());
         msgData.put("totalAmount", totalAmount.toString());
+        // Redis Stream 的 XADD 只接受 Map<String, String>，而 OrderItem 是内存里的实体对象，没法直接放进去，必须序列化成 JSON 字符串
         // visitDate 显式格式化为字符串，避免 hutool 把 LocalDateTime 序列化成时间戳数字
         List<Map<String, Object>> itemMaps = orderItems.stream().map(i -> {
             Map<String, Object> m = new HashMap<>();

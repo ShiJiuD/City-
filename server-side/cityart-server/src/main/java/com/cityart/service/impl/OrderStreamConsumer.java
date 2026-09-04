@@ -80,7 +80,7 @@ public class OrderStreamConsumer {
      * 导致 @Transactional 注解失效（事务不开启，部分写入无法回滚）。
      * 通过注入自身代理再调用，保证事务生效。
      */
-    @Lazy
+    @Lazy  // **这个 Bean 不会在启动阶段实例化，第一次被使用 / 注入的时候才创建**。
     @Autowired
     private OrderStreamConsumer self;
 
