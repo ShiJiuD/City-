@@ -3,7 +3,8 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCityStore } from '../stores/city'
 import { getHomeData } from '../api/home'
-import type { HomeData } from '../types'
+import { getRecommendations } from '../api/recommend'
+import type { HomeData, RecommendExhibition } from '../types'
 import FooterBar from '../components/FooterBar.vue'
 
 // ===== 本地 Banner 图片 =====
@@ -33,6 +34,9 @@ const loading = ref(true)
 const error = ref('')
 const homeData = ref<HomeData | null>(null)
 const homePage = ref<HTMLElement | null>(null)
+const recommendLoading = ref(true)
+const recommendError = ref('')
+const recommendations = ref<RecommendExhibition[]>([])
 
 // ===== 自定义慢速强制滚动捕捉 =====
 let isScrolling = false
@@ -112,8 +116,8 @@ const coverflowList = [
   { id: 3, posterImage: banner02_3 },
 ]
 
-// Swiper 3：艺览智荐
-const recommendList = [
+// 艺览智荐海报兜底图（接口图片为空或加载失败时使用）
+const recommendFallbacks = [
   { id: 1, poster: banner03_1 },
   { id: 2, poster: banner03_2 },
   { id: 3, poster: banner03_3 },
@@ -142,6 +146,9 @@ const displayBanners = computed(() => {
   }
   return bannerList.map((b) => ({ ...b, title: '' }))
 })
+
+/** 艺览智荐：严格使用推荐接口的数据顺序，保留算法排序结果 */
+const displayRecommendations = computed(() => recommendations.value)
 
 /** 热门展览：API 数据驱动，本地图片展示。只有 API 未加载时才回退 */
 const displayHotExhibitions = computed(() => {
@@ -197,6 +204,31 @@ async function fetchHomeData() {
   }
 }
 
+// ===== 获取艺览智荐 =====
+async function fetchRecommendations() {
+  recommendLoading.value = true
+  recommendError.value = ''
+  try {
+    const res = await getRecommendations(4)
+    recommendations.value = Array.isArray(res.data) ? res.data : []
+  } catch (e: any) {
+    recommendations.value = []
+    recommendError.value = e.message || '推荐内容加载失败'
+  } finally {
+    recommendLoading.value = false
+  }
+}
+
+function getRecommendPoster(item: RecommendExhibition, index: number) {
+  return item.posterImage || recommendFallbacks[index % recommendFallbacks.length].poster
+}
+
+function handleRecommendImageError(event: Event, index: number) {
+  const image = event.currentTarget as HTMLImageElement
+  image.onerror = null
+  image.src = recommendFallbacks[index % recommendFallbacks.length].poster
+}
+
 // ===== 初始化 Swiper =====
 function initSwipers() {
   // 区域一：Banner Swiper（本地图片）
@@ -228,18 +260,25 @@ function initSwipers() {
   })
 
   // 区域三：艺览智荐 双列轮播
-  recommendSwiper = new Swiper('.recommend-swiper', {
-    slidesPerView: 2,
-    spaceBetween: 16,
-    loop: true,
-    autoplay: { delay: 3500, disableOnInteraction: false },
-  })
+  if (recommendations.value.length > 0) {
+    recommendSwiper = new Swiper('.recommend-swiper', {
+      slidesPerView: 2,
+      spaceBetween: 16,
+      loop: recommendations.value.length > 2,
+      autoplay: recommendations.value.length > 2
+        ? { delay: 3500, disableOnInteraction: false }
+        : false,
+    })
+  }
 }
 
 function destroySwipers() {
   bannerSwiper?.destroy(true, true)
   coverflowSwiper?.destroy(true, true)
   recommendSwiper?.destroy(true, true)
+  bannerSwiper = null
+  coverflowSwiper = null
+  recommendSwiper = null
 }
 
 // ===== 路由跳转 =====
@@ -266,11 +305,13 @@ function goToHotGalleries() {
 // ===== 重试 =====
 function retry() {
   fetchHomeData()
+  fetchRecommendations()
 }
 
 // ===== 生命周期 =====
 onMounted(() => {
   fetchHomeData()
+  fetchRecommendations()
 })
 
 // 城市切换时重新请求
@@ -281,9 +322,10 @@ watch(() => cityStore.currentCity, () => {
 })
 
 // 数据加载完成后初始化 Swiper + 注册滚动事件
-watch(loading, async (val) => {
-  if (!val && !error.value && homeData.value) {
+watch([loading, recommendLoading], async ([homeBusy, recommendBusy]) => {
+  if (!homeBusy && !recommendBusy && !error.value && homeData.value) {
     await nextTick()
+    destroySwipers()
     initSwipers()
     homePage.value?.addEventListener('wheel', handleWheel, { passive: false })
   }
@@ -369,19 +411,32 @@ onUnmounted(() => {
               <h3 class="recommend-title">艺览智荐</h3>
               <p class="recommend-desc">基于AI个性化推荐展览</p>
             </div>
-            <button class="recommend-more">查看更多 &gt;</button>
+            <button class="recommend-more" @click="goToExhibitions">查看更多 &gt;</button>
           </div>
-          <div class="swiper recommend-swiper">
+          <div v-if="recommendLoading" class="recommend-status" aria-live="polite">
+            <span class="recommend-spinner"></span>
+            <span>正在为你挑选展览...</span>
+          </div>
+          <div v-else-if="recommendError" class="recommend-status recommend-status--error">
+            <span>{{ recommendError }}</span>
+            <button class="recommend-retry" @click="fetchRecommendations">重新加载</button>
+          </div>
+          <div v-else-if="displayRecommendations.length === 0" class="recommend-status">
+            暂无可推荐的展览，稍后再来看看吧
+          </div>
+          <div v-else class="swiper recommend-swiper">
             <div class="swiper-wrapper">
               <div
-                v-for="item in recommendList"
+                v-for="(item, index) in displayRecommendations"
                 :key="item.id"
                 class="swiper-slide recommend-slide"
+                @click="goToExhibition(item.id)"
               >
                 <img
-                  :src="item.poster"
-                  alt="推荐"
+                  :src="getRecommendPoster(item, index)"
+                  :alt="item.title"
                   class="recommend-img"
+                  @error="handleRecommendImageError($event, index)"
                 />
               </div>
             </div>
@@ -704,6 +759,46 @@ onUnmounted(() => {
   object-fit: cover;
   display: block;
   border-radius: 8px;
+}
+
+.recommend-status {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px dashed rgba(0, 0, 0, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+  color: #666;
+  font-size: 15px;
+}
+
+.recommend-status--error {
+  flex-direction: column;
+}
+
+.recommend-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ccc;
+  border-top-color: #333;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.recommend-retry {
+  padding: 7px 16px;
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: transparent;
+  color: #333;
+  cursor: pointer;
+}
+
+.recommend-retry:hover {
+  background: #333;
+  color: #fff;
 }
 
 /* ===== 热门美术馆 ===== */
